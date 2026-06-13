@@ -17,16 +17,16 @@
 
 ## Progress Status
 
-_Last updated: 2026-06-13 after PR #10 merge._
+_Last updated: 2026-06-13 after PR #14 merge._
 
-| Phase                                               | Status      | Evidence    |
-| --------------------------------------------------- | ----------- | ----------- |
-| Phase 0: Repository Foundation                      | ✅ Complete | PR #1       |
-| Phase 1: Shared Configuration and Domain Primitives | ✅ Complete | PR #1       |
-| Phase 2: Database Schema                            | ✅ Complete | PR #3–#6    |
-| Phase 3: API Foundation                             | ✅ Complete | PR #7       |
-| Phase 4: Seed Data and Admin Auth                   | ✅ Complete | PR #8–#10   |
-| Phase 5: Admin Board Management API                 | ⏭️ Next     | Not started |
+| Phase                                               | Status      | Evidence   |
+| --------------------------------------------------- | ----------- | ---------- |
+| Phase 0: Repository Foundation                      | ✅ Complete | PR #1      |
+| Phase 1: Shared Configuration and Domain Primitives | ✅ Complete | PR #1      |
+| Phase 2: Database Schema                            | ✅ Complete | PR #3–#6   |
+| Phase 3: API Foundation                             | ✅ Complete | PR #7      |
+| Phase 4: Seed Data and Admin Auth                   | ✅ Complete | PR #8–#10  |
+| Phase 5: Admin Board Management API                 | ✅ Complete | PR #12–#14 |
 
 Phase 4 completion notes:
 
@@ -35,6 +35,15 @@ Phase 4 completion notes:
 - PR #10 added DB-backed admin sessions plus login/logout/`/me` routes.
 - Merged-main verification: `bun run check` passed with 75 tests.
 - Real Postgres smoke passed for migrate → seed → login → `/api/admin/me` → logout → post-logout 401.
+
+Phase 5 completion notes:
+
+- PR #12 added admin organization, venue, and board read APIs.
+- PR #13 added admin board create and update APIs with input validation, slug conflict handling, policy defaults, RBAC checks, and display-version behavior.
+- PR #14 added admin board open, close, and reset operations with event logging, transaction-based board locking, display-version increments, and reset soft-removal of active queue entries.
+- Merged-main verification: `bun run check` passed with 141 tests.
+- Real Postgres smoke passed for migrate → seed → login → board list → close/open/reset → board create → board patch → database event/board-state verification.
+- Completion journal: `docs/plans/2026-06-13-phase-5-completion-journal.md`.
 
 ---
 
@@ -694,7 +703,15 @@ git commit -m "feat: add admin RBAC helpers"
 
 ## Phase 5: Admin Board Management API
 
-**Status:** ⏭️ Next phase. Not started as of 2026-06-13; Phase 4 auth/RBAC/seed foundation is available.
+**Status:** ✅ Complete. Implemented across PR #12–#14 and verified on merged `main` with unit tests, typecheck, full `bun run check`, and a real PostgreSQL-backed curl smoke test.
+
+Completion evidence:
+
+- PR #12 added `GET /api/admin/organizations`, `GET /api/admin/venues`, `GET /api/admin/boards`, and `GET /api/admin/boards/:boardId`.
+- PR #13 added `POST /api/admin/boards` and `PATCH /api/admin/boards/:boardId`.
+- PR #14 added `POST /api/admin/boards/:boardId/open`, `POST /api/admin/boards/:boardId/close`, and `POST /api/admin/boards/:boardId/reset`.
+- `bun run check` passed with 141 tests after PR #14 merged.
+- Real PostgreSQL smoke verified migrate, seed, admin login, board listing, open/close/reset operations, board creation, board patching, and persisted board-event/database state.
 
 ### Task 5.1: Implement admin organization and venue read endpoints
 
