@@ -20,6 +20,30 @@ function conflictMessage(field: "slug" | "publicSlug"): string {
   return "A board with this public slug already exists.";
 }
 
+type BoardOperationHandler = (
+  service: BoardManagementService,
+  rbac: { memberships: Awaited<ReturnType<AdminAuthService["resolve"]>>["memberships"] },
+  adminUserId: string,
+  boardId: string,
+) => ReturnType<BoardManagementService["openBoard"]>;
+
+async function runBoardOperationRoute(
+  deps: AdminBoardsRouteDeps,
+  request: Request,
+  boardId: string,
+  operation: BoardOperationHandler,
+) {
+  const session = await requireAdminSession(deps.authService, request.headers);
+  const rbac = { memberships: session.memberships };
+  const result = await operation(deps.boardManagementService, rbac, session.admin.id, boardId);
+
+  if (!result) {
+    throw notFoundError();
+  }
+
+  return apiSuccess(result);
+}
+
 export function adminBoardsRoutes(deps: AdminBoardsRouteDeps) {
   return new Elysia({ name: "admin-boards-routes" })
     .get("/api/admin/boards", async ({ request }) => {
@@ -87,5 +111,20 @@ export function adminBoardsRoutes(deps: AdminBoardsRouteDeps) {
       }
 
       return apiSuccess({ board: result.board });
-    });
+    })
+    .post("/api/admin/boards/:boardId/open", async ({ request, params }) =>
+      runBoardOperationRoute(deps, request, params.boardId, (service, rbac, adminUserId, boardId) =>
+        service.openBoard(rbac, adminUserId, boardId),
+      ),
+    )
+    .post("/api/admin/boards/:boardId/close", async ({ request, params }) =>
+      runBoardOperationRoute(deps, request, params.boardId, (service, rbac, adminUserId, boardId) =>
+        service.closeBoard(rbac, adminUserId, boardId),
+      ),
+    )
+    .post("/api/admin/boards/:boardId/reset", async ({ request, params }) =>
+      runBoardOperationRoute(deps, request, params.boardId, (service, rbac, adminUserId, boardId) =>
+        service.resetBoard(rbac, adminUserId, boardId),
+      ),
+    );
 }

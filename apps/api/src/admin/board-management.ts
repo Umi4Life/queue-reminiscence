@@ -6,6 +6,13 @@ import { and, eq, inArray, ne, or } from "drizzle-orm";
 import type { CreateBoardInput, PatchBoardInput } from "./board-input";
 import { patchChangesDisplayVersion } from "./board-input";
 import {
+  closeBoard as closeBoardOperation,
+  openBoard as openBoardOperation,
+  resetBoard as resetBoardOperation,
+  type BoardOperationResult,
+} from "./board-operations";
+export type { BoardOperationResult } from "./board-operations";
+import {
   canManageVenue,
   canOperateBoard,
   canReadVenue,
@@ -63,6 +70,21 @@ export interface BoardManagementService {
     boardId: string,
     patch: PatchBoardInput,
   ): Promise<UpdateBoardResult>;
+  openBoard(
+    rbac: AdminRbacContext,
+    adminUserId: string,
+    boardId: string,
+  ): Promise<BoardOperationResult | null>;
+  closeBoard(
+    rbac: AdminRbacContext,
+    adminUserId: string,
+    boardId: string,
+  ): Promise<BoardOperationResult | null>;
+  resetBoard(
+    rbac: AdminRbacContext,
+    adminUserId: string,
+    boardId: string,
+  ): Promise<BoardOperationResult | null>;
 }
 
 export type CreateBoardResult =
@@ -124,7 +146,7 @@ function toVenueSummary(venue: Venue): VenueSummary {
   };
 }
 
-function toBoardSummary(board: Board, organizationId: string): BoardSummary {
+export function toBoardSummaryFromRow(board: Board, organizationId: string): BoardSummary {
   return {
     id: board.id,
     venueId: board.venueId,
@@ -213,7 +235,7 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
         .innerJoin(venues, eq(boards.venueId, venues.id))
         .where(or(...accessConditions));
 
-      return rows.map((row) => toBoardSummary(row.board, row.venue.organizationId));
+      return rows.map((row) => toBoardSummaryFromRow(row.board, row.venue.organizationId));
     },
 
     async getBoard(rbac: AdminRbacContext, boardId: string): Promise<BoardSummary | null> {
@@ -238,7 +260,7 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
         return null;
       }
 
-      return toBoardSummary(row.board, row.venue.organizationId);
+      return toBoardSummaryFromRow(row.board, row.venue.organizationId);
     },
 
     async createBoard(rbac, input): Promise<CreateBoardResult> {
@@ -305,7 +327,7 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
 
       return {
         status: "created",
-        board: toBoardSummary(created, venue.organizationId),
+        board: toBoardSummaryFromRow(created, venue.organizationId),
       };
     },
 
@@ -379,8 +401,20 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
 
       return {
         status: "updated",
-        board: toBoardSummary(updated, row.venue.organizationId),
+        board: toBoardSummaryFromRow(updated, row.venue.organizationId),
       };
+    },
+
+    openBoard(rbac, adminUserId, boardId) {
+      return openBoardOperation(db, rbac, adminUserId, boardId);
+    },
+
+    closeBoard(rbac, adminUserId, boardId) {
+      return closeBoardOperation(db, rbac, adminUserId, boardId);
+    },
+
+    resetBoard(rbac, adminUserId, boardId) {
+      return resetBoardOperation(db, rbac, adminUserId, boardId);
     },
   };
 }

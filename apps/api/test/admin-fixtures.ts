@@ -1,5 +1,6 @@
 import type {
   BoardManagementService,
+  BoardOperationResult,
   BoardSummary,
   CreateBoardResult,
   OrganizationSummary,
@@ -10,7 +11,7 @@ import type { CreateBoardInput, PatchBoardInput } from "../src/admin/board-input
 import { patchChangesDisplayVersion } from "../src/admin/board-input";
 import type { AdminAuthService, AdminSessionContext } from "../src/auth/admin-sessions";
 import { unauthorizedError } from "../src/http/errors";
-import type { AdminMembershipContext } from "../src/auth/rbac";
+import { assertCanOperateBoard, type AdminMembershipContext } from "../src/auth/rbac";
 
 export const ORG_A = "00000000-0000-4000-8000-000000000001";
 export const ORG_B = "00000000-0000-4000-8000-000000000002";
@@ -219,13 +220,86 @@ function canOperateBoardForMemberships(
   return getAssignedVenueIds(memberships).has(board.venueId);
 }
 
+export type FakeBoardEventType = "board_opened" | "board_closed" | "board_reset";
+
+export interface FakeBoardEvent {
+  boardId: string;
+  type: FakeBoardEventType;
+  actorAdminUserId: string;
+}
+
+export interface FakeBoardManagementHarness {
+  service: BoardManagementService & { boards: BoardSummary[] };
+  boards: BoardSummary[];
+  events: FakeBoardEvent[];
+  resetBoards(initialBoards?: BoardSummary[]): void;
+}
+
+function cloneBoards(initialBoards: BoardSummary[]): BoardSummary[] {
+  return initialBoards.map((board) => ({ ...board }));
+}
+
 export function createFakeBoardManagementService(
   initialBoards: BoardSummary[] = boardsFixture.map((board) => ({ ...board })),
 ): BoardManagementService & { boards: BoardSummary[] } {
-  const boardsState = initialBoards.map((board) => ({ ...board }));
+  return createFakeBoardManagementHarness(initialBoards).service;
+}
 
-  return {
-    boards: boardsState,
+export function createFakeBoardManagementHarness(
+  initialBoards: BoardSummary[] = boardsFixture.map((board) => ({ ...board })),
+): FakeBoardManagementHarness {
+  const events: FakeBoardEvent[] = [];
+  const harness: FakeBoardManagementHarness = {
+    boards: cloneBoards(initialBoards),
+    events,
+    resetBoards(nextBoards = boardsFixture.map((board) => ({ ...board }))) {
+      harness.boards.splice(0, harness.boards.length, ...cloneBoards(nextBoards));
+      events.splice(0, events.length);
+    },
+    service: undefined as unknown as BoardManagementService & { boards: BoardSummary[] },
+  };
+
+  function findBoard(boardId: string): BoardSummary | undefined {
+    return harness.boards.find((candidate) => candidate.id === boardId);
+  }
+
+  function updateBoardState(boardId: string, patch: Partial<BoardSummary>): BoardSummary {
+    const index = harness.boards.findIndex((candidate) => candidate.id === boardId);
+
+    if (index === -1) {
+      throw new Error(`board ${boardId} not found`);
+    }
+
+    const updated = { ...harness.boards[index], ...patch };
+    harness.boards[index] = updated;
+    return updated;
+  }
+
+  function recordEvent(boardId: string, type: FakeBoardEventType, actorAdminUserId: string): void {
+    events.push({ boardId, type, actorAdminUserId });
+  }
+
+  function requireOperableBoard(
+    rbac: { memberships: readonly AdminMembershipContext[] },
+    boardId: string,
+  ): BoardSummary | null {
+    const board = findBoard(boardId);
+
+    if (!board) {
+      return null;
+    }
+
+    assertCanOperateBoard(rbac, {
+      boardId: board.id,
+      venueId: board.venueId,
+      organizationId: board.organizationId,
+    });
+
+    return board;
+  }
+
+  const service: BoardManagementService & { boards: BoardSummary[] } = {
+    boards: harness.boards,
 
     async listOrganizations({ memberships }) {
       const organizationIds = new Set(memberships.map((membership) => membership.organizationId));
@@ -248,7 +322,7 @@ export function createFakeBoardManagementService(
     async listBoards({ memberships }) {
       const assignedVenueIds = getAssignedVenueIds(memberships);
 
-      return boardsState.filter((board) => {
+      return harness.boards.filter((board) => {
         if (hasOrgOwnerAccess(memberships, board.organizationId)) {
           return true;
         }
@@ -258,7 +332,7 @@ export function createFakeBoardManagementService(
     },
 
     async getBoard({ memberships }, boardId) {
-      const board = boardsState.find((candidate) => candidate.id === boardId);
+      const board = findBoard(boardId);
 
       if (!board) {
         return null;
@@ -291,12 +365,12 @@ export function createFakeBoardManagementService(
       }
 
       if (
-        boardsState.some((board) => board.venueId === input.venueId && board.slug === input.slug)
+        harness.boards.some((board) => board.venueId === input.venueId && board.slug === input.slug)
       ) {
         return { status: "conflict", field: "slug" };
       }
 
-      if (boardsState.some((board) => board.publicSlug === input.publicSlug)) {
+      if (harness.boards.some((board) => board.publicSlug === input.publicSlug)) {
         return { status: "conflict", field: "publicSlug" };
       }
 
@@ -320,7 +394,7 @@ export function createFakeBoardManagementService(
         updatedAt: new Date("2026-06-13T00:00:00.000Z"),
       };
 
-      boardsState.push(created);
+      harness.boards.push(created);
 
       return { status: "created", board: created };
     },
@@ -330,13 +404,13 @@ export function createFakeBoardManagementService(
       boardId: string,
       patch: PatchBoardInput,
     ): Promise<UpdateBoardResult> {
-      const boardIndex = boardsState.findIndex((candidate) => candidate.id === boardId);
+      const boardIndex = harness.boards.findIndex((candidate) => candidate.id === boardId);
 
       if (boardIndex === -1) {
         return { status: "not_found" };
       }
 
-      const board = boardsState[boardIndex] as BoardSummary;
+      const board = harness.boards[boardIndex] as BoardSummary;
 
       if (!canOperateBoardForMemberships(memberships, board)) {
         return { status: "not_found" };
@@ -348,7 +422,7 @@ export function createFakeBoardManagementService(
 
       if (
         patch.slug !== undefined &&
-        boardsState.some(
+        harness.boards.some(
           (candidate) =>
             candidate.id !== boardId &&
             candidate.venueId === board.venueId &&
@@ -360,7 +434,7 @@ export function createFakeBoardManagementService(
 
       if (
         patch.publicSlug !== undefined &&
-        boardsState.some(
+        harness.boards.some(
           (candidate) => candidate.id !== boardId && candidate.publicSlug === patch.publicSlug,
         )
       ) {
@@ -376,11 +450,87 @@ export function createFakeBoardManagementService(
         updatedAt: new Date("2026-06-13T12:00:00.000Z"),
       };
 
-      boardsState[boardIndex] = updated;
+      harness.boards[boardIndex] = updated;
 
       return { status: "updated", board: updated };
     },
+
+    async openBoard(
+      rbac: { memberships: readonly AdminMembershipContext[] },
+      adminUserId: string,
+      boardId: string,
+    ): Promise<BoardOperationResult | null> {
+      const board = requireOperableBoard(rbac, boardId);
+
+      if (!board) {
+        return null;
+      }
+
+      if (board.status === "open") {
+        return { board, changed: false };
+      }
+
+      recordEvent(boardId, "board_opened", adminUserId);
+
+      return {
+        board: updateBoardState(boardId, {
+          status: "open",
+          displayVersion: board.displayVersion + 1,
+        }),
+        changed: true,
+      };
+    },
+
+    async closeBoard(
+      rbac: { memberships: readonly AdminMembershipContext[] },
+      adminUserId: string,
+      boardId: string,
+    ): Promise<BoardOperationResult | null> {
+      const board = requireOperableBoard(rbac, boardId);
+
+      if (!board) {
+        return null;
+      }
+
+      if (board.status === "closed") {
+        return { board, changed: false };
+      }
+
+      recordEvent(boardId, "board_closed", adminUserId);
+
+      return {
+        board: updateBoardState(boardId, {
+          status: "closed",
+          displayVersion: board.displayVersion + 1,
+        }),
+        changed: true,
+      };
+    },
+
+    async resetBoard(
+      rbac: { memberships: readonly AdminMembershipContext[] },
+      adminUserId: string,
+      boardId: string,
+    ): Promise<BoardOperationResult | null> {
+      const board = requireOperableBoard(rbac, boardId);
+
+      if (!board) {
+        return null;
+      }
+
+      recordEvent(boardId, "board_reset", adminUserId);
+
+      return {
+        board: updateBoardState(boardId, {
+          displayVersion: board.displayVersion + 1,
+        }),
+        changed: true,
+      };
+    },
   };
+
+  harness.service = service;
+  return harness;
 }
 
 export const sessionCookie = "qr_admin_session=test-session-token";
