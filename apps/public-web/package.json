@@ -1,0 +1,8 @@
+{
+  "name": "@queue-reminiscence/public-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo \"@queue-reminiscence/public-web placeholder\""
+  }
+}

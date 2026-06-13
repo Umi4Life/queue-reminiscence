@@ -1,0 +1,8 @@
+{
+  "name": "@queue-reminiscence/domain",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo \"@queue-reminiscence/domain placeholder\""
+  }
+}

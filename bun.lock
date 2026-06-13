@@ -1,0 +1,45 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "queue-reminiscence",
+    },
+    "apps/admin-web": {
+      "name": "@queue-reminiscence/admin-web",
+    },
+    "apps/api": {
+      "name": "@queue-reminiscence/api",
+    },
+    "apps/public-web": {
+      "name": "@queue-reminiscence/public-web",
+    },
+    "packages/config": {
+      "name": "@queue-reminiscence/config",
+    },
+    "packages/db": {
+      "name": "@queue-reminiscence/db",
+    },
+    "packages/domain": {
+      "name": "@queue-reminiscence/domain",
+    },
+    "packages/ui": {
+      "name": "@queue-reminiscence/ui",
+    },
+  },
+  "packages": {
+    "@queue-reminiscence/admin-web": ["@queue-reminiscence/admin-web@workspace:apps/admin-web"],
+
+    "@queue-reminiscence/api": ["@queue-reminiscence/api@workspace:apps/api"],
+
+    "@queue-reminiscence/config": ["@queue-reminiscence/config@workspace:packages/config"],
+
+    "@queue-reminiscence/db": ["@queue-reminiscence/db@workspace:packages/db"],
+
+    "@queue-reminiscence/domain": ["@queue-reminiscence/domain@workspace:packages/domain"],
+
+    "@queue-reminiscence/public-web": ["@queue-reminiscence/public-web@workspace:apps/public-web"],
+
+    "@queue-reminiscence/ui": ["@queue-reminiscence/ui@workspace:packages/ui"],
+  }
+}

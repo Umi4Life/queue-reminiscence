@@ -1,0 +1,12 @@
+{
+  "name": "queue-reminiscence",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "install:check": "bun install --frozen-lockfile"
+  }
+}
