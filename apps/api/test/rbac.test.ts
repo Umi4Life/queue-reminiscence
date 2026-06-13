@@ -1,0 +1,349 @@
+import { describe, expect, test } from "bun:test";
+
+import {
+  assertCanManageBoard,
+  assertCanManageOrganization,
+  assertCanManageVenue,
+  assertCanOperateBoard,
+  assertCanReadOrganization,
+  assertCanReadVenue,
+  canManageBoard,
+  canManageOrganization,
+  canManageVenue,
+  canOperateBoard,
+  canReadOrganization,
+  canReadVenue,
+  type AdminMembershipContext,
+  type AdminRbacContext,
+  type BoardResourceContext,
+  type VenueResourceContext,
+} from "../src/auth/rbac";
+import { forbiddenError } from "../src/http/errors";
+
+const ORG_A = "org-a";
+const ORG_B = "org-b";
+const VENUE_A1 = "venue-a1";
+const VENUE_A2 = "venue-a2";
+const BOARD_A1 = "board-a1";
+
+function membership(
+  organizationId: string,
+  venueId: string | null,
+  role: AdminMembershipContext["role"],
+): AdminMembershipContext {
+  return { organizationId, venueId, role };
+}
+
+function context(...memberships: AdminMembershipContext[]): AdminRbacContext {
+  return { memberships };
+}
+
+const orgOwnerMembership = membership(ORG_A, null, "org_owner");
+const venueManagerMembership = membership(ORG_A, VENUE_A1, "venue_manager");
+const venueStaffMembership = membership(ORG_A, VENUE_A1, "venue_staff");
+
+const venueA1: VenueResourceContext = { organizationId: ORG_A, venueId: VENUE_A1 };
+const venueA2: VenueResourceContext = { organizationId: ORG_A, venueId: VENUE_A2 };
+const venueB1: VenueResourceContext = { organizationId: ORG_B, venueId: "venue-b1" };
+
+const boardA1: BoardResourceContext = {
+  organizationId: ORG_A,
+  venueId: VENUE_A1,
+  boardId: BOARD_A1,
+};
+
+const boardA2: BoardResourceContext = {
+  organizationId: ORG_A,
+  venueId: VENUE_A2,
+  boardId: "board-a2",
+};
+
+type BooleanCase = {
+  name: string;
+  admin: AdminRbacContext;
+  expected: boolean;
+};
+
+describe("admin RBAC helpers", () => {
+  describe("canReadOrganization", () => {
+    const cases: Array<BooleanCase & { organizationId: string }> = [
+      {
+        name: "org_owner can read own organization",
+        admin: context(orgOwnerMembership),
+        organizationId: ORG_A,
+        expected: true,
+      },
+      {
+        name: "venue_manager can read organization context",
+        admin: context(venueManagerMembership),
+        organizationId: ORG_A,
+        expected: true,
+      },
+      {
+        name: "venue_staff can read organization context",
+        admin: context(venueStaffMembership),
+        organizationId: ORG_A,
+        expected: true,
+      },
+      {
+        name: "org_owner cannot read a different organization",
+        admin: context(orgOwnerMembership),
+        organizationId: ORG_B,
+        expected: false,
+      },
+      {
+        name: "venue_manager cannot read a different organization",
+        admin: context(venueManagerMembership),
+        organizationId: ORG_B,
+        expected: false,
+      },
+    ];
+
+    for (const testCase of cases) {
+      test(testCase.name, () => {
+        expect(canReadOrganization(testCase.admin, testCase.organizationId)).toBe(
+          testCase.expected,
+        );
+      });
+    }
+  });
+
+  describe("canManageOrganization", () => {
+    const cases: Array<BooleanCase & { organizationId: string }> = [
+      {
+        name: "org_owner can manage own organization",
+        admin: context(orgOwnerMembership),
+        organizationId: ORG_A,
+        expected: true,
+      },
+      {
+        name: "venue_manager cannot manage organization",
+        admin: context(venueManagerMembership),
+        organizationId: ORG_A,
+        expected: false,
+      },
+      {
+        name: "venue_staff cannot manage organization",
+        admin: context(venueStaffMembership),
+        organizationId: ORG_A,
+        expected: false,
+      },
+      {
+        name: "org_owner cannot manage a different organization",
+        admin: context(orgOwnerMembership),
+        organizationId: ORG_B,
+        expected: false,
+      },
+    ];
+
+    for (const testCase of cases) {
+      test(testCase.name, () => {
+        expect(canManageOrganization(testCase.admin, testCase.organizationId)).toBe(
+          testCase.expected,
+        );
+      });
+    }
+  });
+
+  describe("canReadVenue", () => {
+    const cases: Array<BooleanCase & { resource: VenueResourceContext }> = [
+      {
+        name: "org_owner can read any venue in organization",
+        admin: context(orgOwnerMembership),
+        resource: venueA2,
+        expected: true,
+      },
+      {
+        name: "venue_manager can read assigned venue",
+        admin: context(venueManagerMembership),
+        resource: venueA1,
+        expected: true,
+      },
+      {
+        name: "venue_staff can read assigned venue",
+        admin: context(venueStaffMembership),
+        resource: venueA1,
+        expected: true,
+      },
+      {
+        name: "venue_manager cannot read unassigned venue in same organization",
+        admin: context(venueManagerMembership),
+        resource: venueA2,
+        expected: false,
+      },
+      {
+        name: "venue_staff cannot read venue in different organization",
+        admin: context(venueStaffMembership),
+        resource: venueB1,
+        expected: false,
+      },
+    ];
+
+    for (const testCase of cases) {
+      test(testCase.name, () => {
+        expect(canReadVenue(testCase.admin, testCase.resource)).toBe(testCase.expected);
+      });
+    }
+  });
+
+  describe("canManageVenue", () => {
+    const cases: Array<BooleanCase & { resource: VenueResourceContext }> = [
+      {
+        name: "org_owner can manage any venue in organization",
+        admin: context(orgOwnerMembership),
+        resource: venueA2,
+        expected: true,
+      },
+      {
+        name: "venue_manager can manage assigned venue",
+        admin: context(venueManagerMembership),
+        resource: venueA1,
+        expected: true,
+      },
+      {
+        name: "venue_staff cannot manage assigned venue",
+        admin: context(venueStaffMembership),
+        resource: venueA1,
+        expected: false,
+      },
+      {
+        name: "venue_manager cannot manage unassigned venue",
+        admin: context(venueManagerMembership),
+        resource: venueA2,
+        expected: false,
+      },
+      {
+        name: "venue_manager cannot manage venue in different organization",
+        admin: context(venueManagerMembership),
+        resource: venueB1,
+        expected: false,
+      },
+    ];
+
+    for (const testCase of cases) {
+      test(testCase.name, () => {
+        expect(canManageVenue(testCase.admin, testCase.resource)).toBe(testCase.expected);
+      });
+    }
+  });
+
+  describe("canManageBoard", () => {
+    const cases: Array<BooleanCase & { resource: BoardResourceContext }> = [
+      {
+        name: "org_owner can manage boards in any venue",
+        admin: context(orgOwnerMembership),
+        resource: boardA2,
+        expected: true,
+      },
+      {
+        name: "venue_manager can manage boards in assigned venue",
+        admin: context(venueManagerMembership),
+        resource: boardA1,
+        expected: true,
+      },
+      {
+        name: "venue_staff cannot manage boards",
+        admin: context(venueStaffMembership),
+        resource: boardA1,
+        expected: false,
+      },
+      {
+        name: "venue_manager cannot manage boards in unassigned venue",
+        admin: context(venueManagerMembership),
+        resource: boardA2,
+        expected: false,
+      },
+    ];
+
+    for (const testCase of cases) {
+      test(testCase.name, () => {
+        expect(canManageBoard(testCase.admin, testCase.resource)).toBe(testCase.expected);
+      });
+    }
+  });
+
+  describe("canOperateBoard", () => {
+    const cases: Array<BooleanCase & { resource: BoardResourceContext }> = [
+      {
+        name: "org_owner can operate boards in any venue",
+        admin: context(orgOwnerMembership),
+        resource: boardA2,
+        expected: true,
+      },
+      {
+        name: "venue_manager can operate boards in assigned venue",
+        admin: context(venueManagerMembership),
+        resource: boardA1,
+        expected: true,
+      },
+      {
+        name: "venue_staff can operate boards in assigned venue",
+        admin: context(venueStaffMembership),
+        resource: boardA1,
+        expected: true,
+      },
+      {
+        name: "venue_staff cannot operate boards in unassigned venue",
+        admin: context(venueStaffMembership),
+        resource: boardA2,
+        expected: false,
+      },
+      {
+        name: "venue_staff cannot operate boards in different organization",
+        admin: context(venueStaffMembership),
+        resource: {
+          organizationId: ORG_B,
+          venueId: "venue-b1",
+          boardId: "board-b1",
+        },
+        expected: false,
+      },
+    ];
+
+    for (const testCase of cases) {
+      test(testCase.name, () => {
+        expect(canOperateBoard(testCase.admin, testCase.resource)).toBe(testCase.expected);
+      });
+    }
+  });
+
+  describe("assert helpers", () => {
+    test("assertCanReadOrganization passes for allowed access", () => {
+      assertCanReadOrganization(context(venueStaffMembership), ORG_A);
+    });
+
+    test("assertCanManageOrganization throws forbidden for venue staff", () => {
+      expect(() => assertCanManageOrganization(context(venueStaffMembership), ORG_A)).toThrow(
+        forbiddenError(),
+      );
+    });
+
+    test("assertCanReadVenue throws forbidden for wrong venue", () => {
+      expect(() => assertCanReadVenue(context(venueStaffMembership), venueA2)).toThrow(
+        forbiddenError(),
+      );
+    });
+
+    test("assertCanManageVenue throws forbidden for venue staff", () => {
+      expect(() => assertCanManageVenue(context(venueStaffMembership), venueA1)).toThrow(
+        forbiddenError(),
+      );
+    });
+
+    test("assertCanManageBoard throws forbidden for venue staff", () => {
+      expect(() => assertCanManageBoard(context(venueStaffMembership), boardA1)).toThrow(
+        forbiddenError(),
+      );
+    });
+
+    test("assertCanOperateBoard passes for venue staff on assigned board", () => {
+      assertCanOperateBoard(context(venueStaffMembership), boardA1);
+    });
+
+    test("assertCanOperateBoard throws forbidden for venue staff on unassigned board", () => {
+      expect(() => assertCanOperateBoard(context(venueStaffMembership), boardA2)).toThrow(
+        forbiddenError(),
+      );
+    });
+  });
+});
