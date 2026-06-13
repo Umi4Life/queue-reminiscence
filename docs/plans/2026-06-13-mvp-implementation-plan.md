@@ -15,6 +15,27 @@
 
 **Implementation Rule:** Keep the first implementation boring, explicit, and testable. Do not add participant accounts, SaaS signup, billing, MQTT publishing, queue reordering, or advanced abuse detection in MVP.
 
+## Progress Status
+
+_Last updated: 2026-06-13 after PR #10 merge._
+
+| Phase                                               | Status      | Evidence    |
+| --------------------------------------------------- | ----------- | ----------- |
+| Phase 0: Repository Foundation                      | ✅ Complete | PR #1       |
+| Phase 1: Shared Configuration and Domain Primitives | ✅ Complete | PR #1       |
+| Phase 2: Database Schema                            | ✅ Complete | PR #3–#6    |
+| Phase 3: API Foundation                             | ✅ Complete | PR #7       |
+| Phase 4: Seed Data and Admin Auth                   | ✅ Complete | PR #8–#10   |
+| Phase 5: Admin Board Management API                 | ⏭️ Next     | Not started |
+
+Phase 4 completion notes:
+
+- PR #8 added password helpers, opaque session token helpers, and admin RBAC helpers.
+- PR #9 added idempotent local demo seed data and `db:seed`.
+- PR #10 added DB-backed admin sessions plus login/logout/`/me` routes.
+- Merged-main verification: `bun run check` passed with 75 tests.
+- Real Postgres smoke passed for migrate → seed → login → `/api/admin/me` → logout → post-logout 401.
+
 ---
 
 ## Phase 0: Repository Foundation
@@ -509,7 +530,11 @@ git commit -m "feat: add API error conventions"
 
 ## Phase 4: Seed Data and Admin Auth
 
+**Status:** ✅ Complete in PR #8–#10. Merged to `main`; quality gate and real Postgres seed/auth smoke passed on merged `main`.
+
 ### Task 4.1: Add seed script for first local organization/admin
+
+**Status:** ✅ Complete in PR #9 (`feat: add local demo seed script`).
 
 **Objective:** Create repeatable seed data for local demo and development.
 
@@ -550,6 +575,8 @@ git commit -m "feat: add local demo seed script"
 
 ### Task 4.2: Implement password hashing utilities
 
+**Status:** ✅ Complete in PR #8 (`feat: add admin auth primitives and RBAC helpers`).
+
 **Objective:** Add Argon2id password hashing and verification.
 
 **Files:**
@@ -585,6 +612,8 @@ git commit -m "feat: add admin password hashing"
 ---
 
 ### Task 4.3: Implement admin login/logout/session middleware
+
+**Status:** ✅ Complete in PR #10 (`feat: add admin session auth routes`).
 
 **Objective:** Provide DB-backed admin sessions.
 
@@ -628,6 +657,8 @@ git commit -m "feat: add admin session auth"
 
 ### Task 4.4: Implement admin RBAC helpers
 
+**Status:** ✅ Complete in PR #8 (`feat: add admin auth primitives and RBAC helpers`).
+
 **Objective:** Enforce organization/venue/board permissions in one reusable layer.
 
 **Files:**
@@ -662,6 +693,8 @@ git commit -m "feat: add admin RBAC helpers"
 ---
 
 ## Phase 5: Admin Board Management API
+
+**Status:** ⏭️ Next phase. Not started as of 2026-06-13; Phase 4 auth/RBAC/seed foundation is available.
 
 ### Task 5.1: Implement admin organization and venue read endpoints
 
