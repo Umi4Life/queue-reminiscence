@@ -13,6 +13,7 @@ const REQUIRED_ENV_NAMES = [
 ] as const;
 
 type RequiredEnvName = (typeof REQUIRED_ENV_NAMES)[number];
+type HttpUrlEnvName = Exclude<RequiredEnvName, "DATABASE_URL">;
 
 export interface AppConfig {
   databaseUrl: string;
@@ -39,11 +40,11 @@ export function parseEnv(input: Record<string, string | undefined>): AppConfig {
   const values = readRequiredValues(input);
 
   return {
-    databaseUrl: parseUrl(values.DATABASE_URL, "DATABASE_URL"),
-    publicAppUrl: parseUrl(values.PUBLIC_APP_URL, "PUBLIC_APP_URL"),
-    adminAppUrl: parseUrl(values.ADMIN_APP_URL, "ADMIN_APP_URL"),
-    apiPublicBaseUrl: parseUrl(values.API_PUBLIC_BASE_URL, "API_PUBLIC_BASE_URL"),
-    apiAdminBaseUrl: parseUrl(values.API_ADMIN_BASE_URL, "API_ADMIN_BASE_URL"),
+    databaseUrl: parseDatabaseUrl(values.DATABASE_URL),
+    publicAppUrl: parseHttpUrl(values.PUBLIC_APP_URL, "PUBLIC_APP_URL"),
+    adminAppUrl: parseHttpUrl(values.ADMIN_APP_URL, "ADMIN_APP_URL"),
+    apiPublicBaseUrl: parseHttpUrl(values.API_PUBLIC_BASE_URL, "API_PUBLIC_BASE_URL"),
+    apiAdminBaseUrl: parseHttpUrl(values.API_ADMIN_BASE_URL, "API_ADMIN_BASE_URL"),
     sessionSecret: values.SESSION_SECRET,
     tokenHmacSecret: values.TOKEN_HMAC_SECRET,
     rateLimitHmacSecret: values.RATE_LIMIT_HMAC_SECRET,
@@ -77,20 +78,38 @@ function isBlank(value: string | undefined): boolean {
   return value === undefined || value.trim().length === 0;
 }
 
-function parseUrl(value: string, name: RequiredEnvName): string {
-  const Url = (globalThis as { URL?: new (url: string) => unknown }).URL;
+function parseDatabaseUrl(value: string): string {
+  const url = parseUrl(value, "DATABASE_URL");
+
+  if (url.protocol !== "postgres:" && url.protocol !== "postgresql:") {
+    throw new ConfigError("DATABASE_URL must use postgres or postgresql scheme");
+  }
+
+  return value;
+}
+
+function parseHttpUrl(value: string, name: HttpUrlEnvName): string {
+  const url = parseUrl(value, name);
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new ConfigError(`${name} must use http or https scheme`);
+  }
+
+  return value;
+}
+
+function parseUrl(value: string, name: RequiredEnvName): { protocol: string } {
+  const Url = (globalThis as { URL?: new (url: string) => { protocol: string } }).URL;
 
   if (Url === undefined) {
     throw new ConfigError("URL parser is unavailable in this runtime");
   }
 
   try {
-    new Url(value);
+    return new Url(value);
   } catch {
     throw new ConfigError(`${name} must be a valid URL`);
   }
-
-  return value;
 }
 
 function parseBoolean(value: string, name: RequiredEnvName): boolean {

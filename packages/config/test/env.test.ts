@@ -3,17 +3,17 @@ import { describe, expect, test } from "bun:test";
 import { ConfigError, parseEnv } from "../src/env";
 
 const validEnv = {
-  DATABASE_URL: "postgres://user:pass@localhost:5432/queue_reminiscence",
-  PUBLIC_APP_URL: "http://localhost:5173",
-  ADMIN_APP_URL: "http://localhost:5174",
-  API_PUBLIC_BASE_URL: "http://localhost:3000/public",
-  API_ADMIN_BASE_URL: "http://localhost:3000/admin",
+  DATABASE_URL: "postgres://user:***@localhost:5432/queue_reminiscence",
+  PUBLIC_APP_URL: "http://localhost:3000",
+  ADMIN_APP_URL: "http://localhost:3001",
+  API_PUBLIC_BASE_URL: "http://localhost:3002/api",
+  API_ADMIN_BASE_URL: "http://localhost:3002/api",
   SESSION_SECRET: "change-me-in-development",
   TOKEN_HMAC_SECRET: "change-me-in-development",
   RATE_LIMIT_HMAC_SECRET: "change-me-in-development",
   TRUST_PROXY: "true",
   ADMIN_SESSION_TTL_DAYS: "14",
-  PUBLIC_MUTATION_SESSION_TTL_HOURS: "24",
+  PUBLIC_MUTATION_SESSION_TTL_HOURS: "8",
 };
 
 describe("parseEnv", () => {
@@ -29,8 +29,14 @@ describe("parseEnv", () => {
       rateLimitHmacSecret: validEnv.RATE_LIMIT_HMAC_SECRET,
       trustProxy: true,
       adminSessionTtlDays: 14,
-      publicMutationSessionTtlHours: 24,
+      publicMutationSessionTtlHours: 8,
     });
+  });
+
+  test("trims leading and trailing whitespace from string values before returning config", () => {
+    expect(
+      parseEnv({ ...validEnv, PUBLIC_APP_URL: "  http://localhost:3000  " }).publicAppUrl,
+    ).toBe("http://localhost:3000");
   });
 
   test("parses TRUST_PROXY case-insensitively as false", () => {
@@ -77,5 +83,24 @@ describe("parseEnv", () => {
     expect(() => parseEnv({ ...validEnv, PUBLIC_APP_URL: "not a url" })).toThrow(
       /PUBLIC_APP_URL must be a valid URL/,
     );
+  });
+
+  test("rejects unsafe URL schemes", () => {
+    expect(() => parseEnv({ ...validEnv, PUBLIC_APP_URL: "javascript:alert(1)" })).toThrow(
+      /PUBLIC_APP_URL must use http or https/,
+    );
+
+    expect(() => parseEnv({ ...validEnv, DATABASE_URL: "https://localhost/database" })).toThrow(
+      /DATABASE_URL must use postgres or postgresql/,
+    );
+  });
+});
+
+describe("package root exports", () => {
+  test("importing parser exports does not eagerly parse runtime environment", async () => {
+    const root = await import(`../src/index.ts?cache=${Date.now()}-${Math.random()}`);
+
+    expect(root.parseEnv).toBeTypeOf("function");
+    expect(root.ConfigError).toBe(ConfigError);
   });
 });

@@ -6,7 +6,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./env": "./src/env.ts"
+    "./env": "./src/env.ts",
+    "./runtime": "./src/runtime.ts"
   },
   "scripts": {
     "test": "bun test test"
