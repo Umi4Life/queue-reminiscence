@@ -17,21 +17,25 @@
 
 ## Progress Status
 
-_Last updated: 2026-06-14 after PR #28–#29 merge._
+_Last updated: 2026-06-14 after PR #32–#37 merge (Phases 11–12)._
 
-| Phase                                               | Status      | Evidence   |
-| --------------------------------------------------- | ----------- | ---------- |
-| Phase 0: Repository Foundation                      | ✅ Complete | PR #1      |
-| Phase 1: Shared Configuration and Domain Primitives | ✅ Complete | PR #1      |
-| Phase 2: Database Schema                            | ✅ Complete | PR #3–#6   |
-| Phase 3: API Foundation                             | ✅ Complete | PR #7      |
-| Phase 4: Seed Data and Admin Auth                   | ✅ Complete | PR #8–#10  |
-| Phase 5: Admin Board Management API                 | ✅ Complete | PR #12–#14 |
-| Phase 6: QR/Access Credential System                | ✅ Complete | PR #16–#18 |
-| Phase 7: Public Board Read and Mutation API         | ✅ Complete | PR #20–#21 |
-| Phase 8: Rate Limiting and Audit Metadata           | ✅ Complete | PR #22–#23 |
-| Phase 9: QR Rendering and Display-State API         | ✅ Complete | PR #25–#26 |
-| Phase 10: Public Web App                            | ✅ Complete | PR #28–#29 |
+| Phase                                               | Status      | Evidence            |
+| --------------------------------------------------- | ----------- | ------------------- |
+| Phase 0: Repository Foundation                      | ✅ Complete | PR #1               |
+| Phase 1: Shared Configuration and Domain Primitives | ✅ Complete | PR #1               |
+| Phase 2: Database Schema                            | ✅ Complete | PR #3–#6            |
+| Phase 3: API Foundation                             | ✅ Complete | PR #7               |
+| Phase 4: Seed Data and Admin Auth                   | ✅ Complete | PR #8–#10           |
+| Phase 5: Admin Board Management API                 | ✅ Complete | PR #12–#14          |
+| Phase 6: QR/Access Credential System                | ✅ Complete | PR #16–#18          |
+| Phase 7: Public Board Read and Mutation API         | ✅ Complete | PR #20–#21          |
+| Phase 8: Rate Limiting and Audit Metadata           | ✅ Complete | PR #22–#23          |
+| Phase 9: QR Rendering and Display-State API         | ✅ Complete | PR #25–#26          |
+| Phase 10: Public Web App                            | ✅ Complete | PR #28–#29          |
+| Phase 11: Admin Web App                             | ✅ Complete | PR #32–#33, #35–#36 |
+| Phase 12: End-to-End Testing                        | ✅ Complete | PR #34, #37         |
+| Phase 13: Docker and Homelab Deployment             | 🔲 Next     |                     |
+| Phase 14: MVP Hardening and Review                  | 🔲          |                     |
 
 Phase 4 completion notes:
 
@@ -87,6 +91,22 @@ Phase 10 completion notes:
 - Merged-main verification: `bun run check` passed with 220 tests.
 - Cross-service smoke: Postgres → API :3002 + public-web :3000 → claim → board mutations.
 - Completion journal: `docs/plans/2026-06-14-phase-10-completion-journal.md`.
+
+Phase 11 completion notes:
+
+- PR #32 scaffolded SvelteKit `apps/admin-web/` with `api.ts`, layout shell, and dev proxy to API on :3002.
+- PR #33 added login, dashboard (board list with queue count), and board detail with open/close/reset, rotate QR, and copy URL controls.
+- PR #35 added QR SVG preview after rotation and LAN-safe clipboard copy helpers.
+- PR #36 added create/edit board UI, delete board API, and delete confirmation on board detail.
+- Merged-main verification: `bun run check` — 225 pass, 6 fail (`createDbRateLimiter` integration tests require local Postgres).
+- Completion journal: `docs/plans/2026-06-14-phase-11-completion-journal.md`.
+
+Phase 12 completion notes:
+
+- PR #34 added Playwright config, `global-setup.ts` (`qr-smoke-p12` Postgres on :5433), smoke spec, and root `e2e` / `e2e:install` scripts.
+- PR #37 added `mvp-queue-flow.spec.ts` covering admin login → open → rotate → participant claim → add/remove → activity on both apps.
+- E2E stack: API :3002, public-web :3000, admin-web :3001; seed board **CHUNITHM Gold**.
+- Completion journal: `docs/plans/2026-06-14-phase-12-completion-journal.md`.
 
 ---
 
@@ -1457,6 +1477,16 @@ git commit -m "feat: add public board UI"
 
 ## Phase 11: Admin Web App
 
+**Status:** ✅ Complete. Implemented across PR #32–#33, #35–#36 and verified on merged `main` with admin-web typecheck and three-app cross-service smoke.
+
+Completion evidence:
+
+- PR #32 scaffolded `apps/admin-web/` with dev proxy and API client.
+- PR #33 added login, dashboard, and board operation UI (`AdminBoardControls`, `AdminEventHistory`).
+- PR #35 added QR preview and improved copy UX after credential rotation.
+- PR #36 added board create/edit forms and delete board API + UI.
+- Completion journal: `docs/plans/2026-06-14-phase-11-completion-journal.md`.
+
 ### Task 11.1: Scaffold SvelteKit admin app
 
 **Objective:** Create authenticated operator UI shell.
@@ -1562,6 +1592,14 @@ git commit -m "feat: add admin board operation UI"
 ---
 
 ## Phase 12: End-to-End Testing
+
+**Status:** ✅ Complete. Implemented across PR #34 and #37; `bun run e2e` passes the MVP critical path against the auto-started three-app stack.
+
+Completion evidence:
+
+- PR #34 added Playwright infrastructure, Docker Postgres bootstrap, and smoke tests.
+- PR #37 added `mvp-queue-flow.spec.ts` (admin → participant → admin event verification).
+- Completion journal: `docs/plans/2026-06-14-phase-12-completion-journal.md`.
 
 ### Task 12.1: Add Playwright setup
 
