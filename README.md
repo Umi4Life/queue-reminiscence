@@ -87,9 +87,9 @@ Required core variables include:
 
 ## Current status
 
-Phases 0–9 of the MVP implementation plan are complete on `main`.
+Phases 0–10 of the MVP implementation plan are complete on `main`.
 
-Current backend capabilities include:
+Current capabilities include:
 
 - admin session auth and RBAC
 - admin organization/venue/board management
@@ -101,8 +101,28 @@ Current backend capabilities include:
 - Postgres-backed public mutation rate limiting
 - QR SVG generation for public access URLs
 - display-state polling API with ETag/304 support
+- **public web app** (`apps/public-web/`) — `/q/[accessCode]` claim and `/b/[publicSlug]` board UI
 
 Merged-main quality gate (2026-06-14): `bun run check` — 220 tests passing.
+
+### Local public-web demo
+
+With Postgres running and migrations applied:
+
+```bash
+cp .env.example .env
+cp apps/public-web/.env.example apps/public-web/.env
+bun run --cwd packages/db db:migrate
+bun run --cwd packages/db db:seed
+
+# terminal 1 — API on :3002
+bun run --cwd apps/api dev
+
+# terminal 2 — public web on :3000
+bun run --cwd apps/public-web dev
+```
+
+Rotate a board access credential via the admin API (or wait for Phase 11 admin UI), then open the returned `/q/<accessCode>` URL in a browser. `PUBLIC_APP_URL` in the root `.env` must be exactly `http://localhost:3000` for CORS and cookie flows.
 
 See the MVP plan for the build sequence:
 
