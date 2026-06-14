@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { updateBoard, type BoardSummary } from "$lib/api";
+  import { deleteBoard, updateBoard, type BoardSummary } from "$lib/api";
+  import ConfirmDialog from "./ConfirmDialog.svelte";
+  import { goto } from "$app/navigation";
 
   let {
     board,
@@ -21,6 +23,22 @@
   let success = $state(false);
   let busy = $state(false);
   let successTimer: ReturnType<typeof setTimeout> | null = null;
+  let showDeleteConfirm = $state(false);
+  let deleteError = $state<string | null>(null);
+
+  async function handleDelete() {
+    showDeleteConfirm = false;
+    busy = true;
+    deleteError = null;
+    try {
+      await deleteBoard(board.id);
+      goto("/");
+    } catch (e) {
+      deleteError = e instanceof Error ? e.message : "Failed to delete board.";
+    } finally {
+      busy = false;
+    }
+  }
 
   function showSuccess() {
     success = true;
@@ -139,6 +157,32 @@
     </button>
   </form>
 </section>
+
+<section class="section danger-zone">
+  <h2 class="section-title">Danger zone</h2>
+
+  {#if deleteError}
+    <div class="error-box">{deleteError}</div>
+  {/if}
+
+  <button
+    type="button"
+    class="btn-danger"
+    disabled={busy}
+    onclick={() => { showDeleteConfirm = true; }}
+  >
+    Delete board
+  </button>
+</section>
+
+{#if showDeleteConfirm}
+  <ConfirmDialog
+    message={`Permanently delete "${board.name}"? This removes the board, queue, events, and access credentials. This cannot be undone.`}
+    confirmLabel="Delete board"
+    onConfirm={handleDelete}
+    onCancel={() => { showDeleteConfirm = false; }}
+  />
+{/if}
 
 <style>
   .section {
@@ -264,6 +308,30 @@
   }
 
   .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .danger-zone {
+    border-color: #fca5a5;
+  }
+
+  .btn-danger {
+    background: #fff;
+    color: #dc2626;
+    border: 1px solid #fca5a5;
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.875rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background: #fef2f2;
+  }
+
+  .btn-danger:disabled {
     opacity: 0.6;
     cursor: not-allowed;
   }

@@ -213,6 +213,17 @@ export async function resetBoard(
   );
 }
 
+export async function deleteBoard(
+  boardId: string,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<void> {
+  await apiFetch<{ deleted: true }>(
+    `/admin/boards/${encodeURIComponent(boardId)}`,
+    { method: "DELETE" },
+    fetchFn,
+  );
+}
+
 export async function rotateAccessCredential(
   boardId: string,
   fetchFn: FetchFn = globalThis.fetch,
