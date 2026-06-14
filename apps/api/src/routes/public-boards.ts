@@ -4,6 +4,7 @@ import { Elysia } from "elysia";
 import { readPublicBoardSessionToken } from "./public-access";
 import { notFoundError, unauthorizedError, validationError } from "../http/errors";
 import { apiSuccess } from "../http/response";
+import { buildMutationRequestMeta } from "../public/audit-metadata";
 import type { QueueMutationService } from "../queue/mutations";
 import type { PublicBoardReadService } from "../queue/read";
 
@@ -76,22 +77,24 @@ export function publicBoardsRoutes(deps: PublicBoardsRouteDeps) {
     .post("/api/public/boards/:publicSlug/entries", async ({ params, request, body }) => {
       const sessionToken = requireSessionToken(request.headers);
       const displayName = parseDisplayNameBody(body);
+      const requestMeta = buildMutationRequestMeta(request, deps.config);
       const entry = await deps.queueMutationService.addEntry(
         params.publicSlug,
         sessionToken,
         displayName,
-        {},
+        requestMeta,
       );
 
       return apiSuccess({ entry });
     })
     .post("/api/public/boards/:publicSlug/entries/:entryId/remove", async ({ params, request }) => {
       const sessionToken = requireSessionToken(request.headers);
+      const requestMeta = buildMutationRequestMeta(request, deps.config);
       const result = await deps.queueMutationService.removeEntry(
         params.publicSlug,
         sessionToken,
         params.entryId,
-        {},
+        requestMeta,
       );
 
       return apiSuccess(result);
