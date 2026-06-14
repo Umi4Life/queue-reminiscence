@@ -1,6 +1,16 @@
 import type { Board, Organization, Venue } from "@queue-reminiscence/db";
 import type { Database } from "@queue-reminiscence/db";
-import { boards, organizations, venues } from "@queue-reminiscence/db/schema";
+import {
+  auditMetadata,
+  boardAccessCredentials,
+  boardEvents,
+  boards,
+  displayDevices,
+  organizations,
+  publicBoardSessions,
+  queueEntries,
+  venues,
+} from "@queue-reminiscence/db/schema";
 import { and, eq, inArray, ne, or } from "drizzle-orm";
 
 import type { CreateBoardInput, PatchBoardInput } from "./board-input";
@@ -70,6 +80,7 @@ export interface BoardManagementService {
     boardId: string,
     patch: PatchBoardInput,
   ): Promise<UpdateBoardResult>;
+  deleteBoard(rbac: AdminRbacContext, boardId: string): Promise<DeleteBoardResult>;
   openBoard(
     rbac: AdminRbacContext,
     adminUserId: string,
@@ -98,6 +109,11 @@ export type UpdateBoardResult =
   | { status: "not_found" }
   | { status: "forbidden" }
   | { status: "conflict"; field: "slug" | "publicSlug" };
+
+export type DeleteBoardResult =
+  | { status: "deleted" }
+  | { status: "not_found" }
+  | { status: "forbidden" };
 
 function getAccessibleOrganizationIds(memberships: readonly AdminMembershipContext[]): string[] {
   return [...new Set(memberships.map((membership) => membership.organizationId))];
@@ -403,6 +419,63 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
         status: "updated",
         board: toBoardSummaryFromRow(updated, row.venue.organizationId),
       };
+    },
+
+    async deleteBoard(rbac, boardId): Promise<DeleteBoardResult> {
+      const [row] = await db
+        .select({ board: boards, venue: venues })
+        .from(boards)
+        .innerJoin(venues, eq(boards.venueId, venues.id))
+        .where(eq(boards.id, boardId))
+        .limit(1);
+
+      if (!row) {
+        return { status: "not_found" };
+      }
+
+      const resource = {
+        organizationId: row.venue.organizationId,
+        venueId: row.venue.id,
+        boardId: row.board.id,
+      };
+
+      if (!canOperateBoard(rbac, resource)) {
+        return { status: "not_found" };
+      }
+
+      if (!canManageVenue(rbac, resource)) {
+        return { status: "forbidden" };
+      }
+
+      await db.transaction(async (tx) => {
+        const eventIds = await tx
+          .select({ id: boardEvents.id })
+          .from(boardEvents)
+          .where(eq(boardEvents.boardId, boardId));
+
+        if (eventIds.length > 0) {
+          await tx.delete(auditMetadata).where(
+            inArray(
+              auditMetadata.eventId,
+              eventIds.map((e) => e.id),
+            ),
+          );
+        }
+
+        await tx
+          .update(queueEntries)
+          .set({ removedByEventId: null })
+          .where(eq(queueEntries.boardId, boardId));
+
+        await tx.delete(boardEvents).where(eq(boardEvents.boardId, boardId));
+        await tx.delete(queueEntries).where(eq(queueEntries.boardId, boardId));
+        await tx.delete(publicBoardSessions).where(eq(publicBoardSessions.boardId, boardId));
+        await tx.delete(boardAccessCredentials).where(eq(boardAccessCredentials.boardId, boardId));
+        await tx.delete(displayDevices).where(eq(displayDevices.boardId, boardId));
+        await tx.delete(boards).where(eq(boards.id, boardId));
+      });
+
+      return { status: "deleted" };
     },
 
     openBoard(rbac, adminUserId, boardId) {

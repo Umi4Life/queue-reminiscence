@@ -3,6 +3,7 @@ import type {
   BoardOperationResult,
   BoardSummary,
   CreateBoardResult,
+  DeleteBoardResult,
   OrganizationSummary,
   UpdateBoardResult,
   VenueSummary,
@@ -453,6 +454,30 @@ export function createFakeBoardManagementHarness(
       harness.boards[boardIndex] = updated;
 
       return { status: "updated", board: updated };
+    },
+
+    async deleteBoard(
+      { memberships }: { memberships: readonly AdminMembershipContext[] },
+      boardId: string,
+    ): Promise<DeleteBoardResult> {
+      const boardIndex = harness.boards.findIndex((candidate) => candidate.id === boardId);
+
+      if (boardIndex === -1) {
+        return { status: "not_found" };
+      }
+
+      const board = harness.boards[boardIndex] as BoardSummary;
+
+      if (!canOperateBoardForMemberships(memberships, board)) {
+        return { status: "not_found" };
+      }
+
+      if (!canManageVenueForMemberships(memberships, board.organizationId, board.venueId)) {
+        return { status: "forbidden" };
+      }
+
+      harness.boards.splice(boardIndex, 1);
+      return { status: "deleted" };
     },
 
     async openBoard(

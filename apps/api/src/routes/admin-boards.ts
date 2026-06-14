@@ -114,6 +114,23 @@ export function adminBoardsRoutes(deps: AdminBoardsRouteDeps) {
 
       return apiSuccess({ board: result.board });
     })
+    .delete("/api/admin/boards/:boardId", async ({ request, params }) => {
+      const session = await requireAdminSession(deps.authService, request.headers);
+      const result = await deps.boardManagementService.deleteBoard(
+        { memberships: session.memberships },
+        params.boardId,
+      );
+
+      if (result.status === "not_found") {
+        throw notFoundError();
+      }
+
+      if (result.status === "forbidden") {
+        throw forbiddenError();
+      }
+
+      return apiSuccess({ deleted: true });
+    })
     .post("/api/admin/boards/:boardId/open", async ({ request, params }) =>
       runBoardOperationRoute(deps, request, params.boardId, (service, rbac, adminUserId, boardId) =>
         service.openBoard(rbac, adminUserId, boardId),

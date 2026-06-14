@@ -22,6 +22,7 @@ describe("CSRF helpers", () => {
   test("only admin mutating methods are flagged", () => {
     expect(isAdminMutationRequest(req("POST", "/api/admin/auth/login"))).toBe(true);
     expect(isAdminMutationRequest(req("PATCH", "/api/admin/boards/b1"))).toBe(true);
+    expect(isAdminMutationRequest(req("DELETE", "/api/admin/boards/b1"))).toBe(true);
     expect(isAdminMutationRequest(req("GET", "/api/admin/me"))).toBe(false);
     expect(isAdminMutationRequest(req("POST", "/api/public/access/claim"))).toBe(false);
   });
