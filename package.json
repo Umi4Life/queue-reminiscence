@@ -16,7 +16,9 @@
     "check": "bun run format:check && bun run lint && bun run typecheck && bun run test",
     "install:check": "bun install --frozen-lockfile",
     "e2e": "playwright test",
-    "e2e:install": "playwright install chromium --with-deps"
+    "e2e:install": "playwright install chromium --with-deps",
+    "docker:up": "docker compose up --build -d",
+    "docker:down": "docker compose down"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
