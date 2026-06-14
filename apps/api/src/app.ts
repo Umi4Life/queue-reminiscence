@@ -24,6 +24,7 @@ import { adminOrganizationsRoutes } from "./routes/admin-organizations";
 import { adminVenuesRoutes } from "./routes/admin-venues";
 import { publicAccessRoutes } from "./routes/public-access";
 import { publicBoardsRoutes } from "./routes/public-boards";
+import { qrRoutes } from "./routes/qr";
 import { healthRoutes, isDatabaseReachable } from "./routes/health";
 import { displayRoutes } from "./routes/display";
 import type { DisplayDeviceResolver } from "./display/display-devices";
@@ -132,7 +133,8 @@ export function createApp(deps: AppDeps = {}) {
         displayDeviceResolver: deps.displayDeviceResolver,
         displayStateService: deps.displayStateService,
       }),
-    );
+    )
+    .use(qrRoutes({ config, db }));
 }
 
 export function createTestApp(deps: AppDeps = {}) {
