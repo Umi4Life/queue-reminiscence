@@ -49,7 +49,8 @@ Cross-service smoke (Hermes integrator, post-merge `main`):
 Postgres (qr-smoke-p9 :5433) → migrate → seed
 API :3002 + public-web :3000 with PUBLIC_APP_URL=http://localhost:3000
 Admin login → rotate credential → open board
-/q/<accessCode> → redirect /b/<publicSlug> → add entry → remove entry
+/q/<accessCode> → 302 redirect /b/<publicSlug>
+POST claim + add entry → 200; board page HTTP 200
 ```
 
 ## Operational Notes
