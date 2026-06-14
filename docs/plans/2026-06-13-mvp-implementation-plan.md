@@ -17,7 +17,7 @@
 
 ## Progress Status
 
-_Last updated: 2026-06-14 after PR #25–#26 merge._
+_Last updated: 2026-06-14 after PR #28–#29 merge._
 
 | Phase                                               | Status      | Evidence   |
 | --------------------------------------------------- | ----------- | ---------- |
@@ -31,6 +31,7 @@ _Last updated: 2026-06-14 after PR #25–#26 merge._
 | Phase 7: Public Board Read and Mutation API         | ✅ Complete | PR #20–#21 |
 | Phase 8: Rate Limiting and Audit Metadata           | ✅ Complete | PR #22–#23 |
 | Phase 9: QR Rendering and Display-State API         | ✅ Complete | PR #25–#26 |
+| Phase 10: Public Web App                            | ✅ Complete | PR #28–#29 |
 
 Phase 4 completion notes:
 
@@ -78,6 +79,14 @@ Phase 9 completion notes:
 - Merged-main verification: `bun run check` passed with 220 tests (includes interim security-hardening patches on `main`).
 - Postgres smoke: migrate → seed → credential rotate → QR SVG 200; display device → state 200 with `qrSvgUrl`; ETag → 304.
 - Completion journal: `docs/plans/2026-06-14-phase-9-completion-journal.md`.
+
+Phase 10 completion notes:
+
+- PR #28 scaffolded SvelteKit `apps/public-web/` with `api.ts`, mobile-first layout, and `/q/[accessCode]` claim flow (redirect or expired/invalid degradation).
+- PR #29 added `/b/[publicSlug]` board page with queue list, add/remove mutations, confirm dialog, and recent activity.
+- Merged-main verification: `bun run check` passed with 220 tests.
+- Cross-service smoke: Postgres → API :3002 + public-web :3000 → claim → board mutations.
+- Completion journal: `docs/plans/2026-06-14-phase-10-completion-journal.md`.
 
 ---
 
