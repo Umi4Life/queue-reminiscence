@@ -8,6 +8,7 @@
     type RotateResult,
   } from "$lib/api";
   import ConfirmDialog from "./ConfirmDialog.svelte";
+  import { PUBLIC_APP_URL } from "$lib/env";
 
   let {
     board,
@@ -97,7 +98,7 @@
   }
 
   function copyPublicUrl() {
-    const url = `${window.location.origin}/b/${board.publicSlug}`;
+    const url = `${PUBLIC_APP_URL}/b/${board.publicSlug}`;
     navigator.clipboard.writeText(url);
   }
 
