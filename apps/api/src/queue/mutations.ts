@@ -5,7 +5,7 @@ import { validateDisplayName } from "@queue-reminiscence/domain";
 import { and, asc, eq, sql } from "drizzle-orm";
 
 import { entryAddedPublicMessage, entryRemovedPublicMessage } from "../admin/board-event-messages";
-import { lockBoardRow } from "../admin/board-context";
+import { lockBoardRow } from "../boards/board-context";
 import type { PublicSessionService } from "../auth/public-sessions";
 import {
   ApiError,
