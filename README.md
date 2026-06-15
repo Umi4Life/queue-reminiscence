@@ -115,7 +115,7 @@ Full guides:
 
 ## Current status
 
-Phases 0–12 of the MVP implementation plan are complete on `main`. Next up: Phase 13 (Docker / homelab deployment) and Phase 14 (hardening / review).
+Phases 0–13 of the MVP implementation plan are complete on `main`. Next up: **Phase 14** (MVP hardening / review).
 
 Current capabilities include:
 
@@ -132,8 +132,9 @@ Current capabilities include:
 - **public web app** (`apps/public-web/`, port **3000**) — `/q/[accessCode]` claim and `/b/[publicSlug]` board UI
 - **admin web app** (`apps/admin-web/`, port **3001**) — login, dashboard, board operations, QR preview, create/edit/delete boards
 - **E2E tests** (Playwright) — MVP critical path via `bun run e2e`
+- **Docker deployment** — `docker-compose.yml` (full dev stack) and `docker-compose.homelab.yml` (app-only overlay for external Postgres + Traefik)
 
-Merged-main quality gate (2026-06-14): `bun run check` — 225 unit tests passing; 6 `createDbRateLimiter` integration tests require local Postgres.
+Merged-main quality gate (2026-06-14): `bun run check` — 225 unit tests passing; 6 `createDbRateLimiter` integration tests require local Postgres. `main` @ `5c76c4c` (PR #41).
 
 ### Local three-app dev
 
