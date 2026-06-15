@@ -35,7 +35,12 @@
 /* Gothic gradient display title (echoes the Re:miniscence jacket logo) */
 .display-title {
   font-family: var(--font-display);
-  background: linear-gradient(90deg, var(--color-primary), var(--color-violet), var(--color-accent));
+  background: linear-gradient(
+    90deg,
+    var(--color-primary),
+    var(--color-violet),
+    var(--color-accent)
+  );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

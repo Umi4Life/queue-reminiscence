@@ -16,8 +16,7 @@ body {
   background:
     radial-gradient(at 18% -5%, rgba(255, 45, 160, 0.18), transparent 45%),
     radial-gradient(at 85% 10%, rgba(41, 224, 255, 0.12), transparent 45%),
-    radial-gradient(at 50% 110%, rgba(157, 77, 255, 0.16), transparent 55%),
-    var(--color-bg);
+    radial-gradient(at 50% 110%, rgba(157, 77, 255, 0.16), transparent 55%), var(--color-bg);
   background-attachment: fixed;
   min-height: 100vh;
 }
