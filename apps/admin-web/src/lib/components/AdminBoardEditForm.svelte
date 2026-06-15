@@ -260,7 +260,7 @@
   .btn-primary {
     align-self: flex-start;
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-on-primary);
     border: none;
     border-radius: var(--radius-sm);
     padding: 0.5rem 0.875rem;

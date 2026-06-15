@@ -90,7 +90,7 @@
     font-size: 0.875rem;
     color: var(--color-text-strong);
     padding: 0.375rem 0;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--color-border);
   }
 
   .event:last-child {

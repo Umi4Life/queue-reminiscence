@@ -13,12 +13,30 @@ body {
   font-size: var(--font-size-base);
   line-height: var(--line-height);
   color: var(--color-text);
-  background: var(--color-bg);
+  background:
+    radial-gradient(at 18% -5%, rgba(255, 45, 160, 0.18), transparent 45%),
+    radial-gradient(at 85% 10%, rgba(41, 224, 255, 0.12), transparent 45%),
+    radial-gradient(at 50% 110%, rgba(157, 77, 255, 0.16), transparent 55%),
+    var(--color-bg);
+  background-attachment: fixed;
   min-height: 100vh;
 }
 
+/* Faint digital grid overlay */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgba(157, 77, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(157, 77, 255, 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
 a {
-  color: var(--color-primary);
+  color: var(--color-accent);
   text-decoration: none;
 }
 

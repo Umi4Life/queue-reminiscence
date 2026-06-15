@@ -80,7 +80,7 @@
     <div class="header-inner">
       <div>
         <a href="/" class="back-link">← Dashboard</a>
-        <h1 class="page-title">New board</h1>
+        <h1 class="page-title display-title">New board</h1>
       </div>
     </div>
   </header>
@@ -200,9 +200,8 @@
   }
 
   .page-title {
-    font-size: 1.25rem;
+    font-size: 1.625rem;
     font-weight: 700;
-    color: var(--color-text);
   }
 
   .content {
@@ -280,7 +279,7 @@
 
   .btn-primary {
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-on-primary);
     border: none;
     border-radius: var(--radius-sm);
     padding: 0.625rem 1rem;

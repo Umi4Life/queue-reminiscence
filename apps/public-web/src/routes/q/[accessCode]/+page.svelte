@@ -60,7 +60,7 @@
     margin-top: 1.25rem;
     padding: 0.625rem 1.5rem;
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-on-primary);
     border-radius: var(--radius-md);
     font-size: 0.9375rem;
     font-weight: 500;

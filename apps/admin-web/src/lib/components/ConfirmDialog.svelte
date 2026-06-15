@@ -46,7 +46,7 @@
   .backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.4);
+    background: var(--color-overlay);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -60,7 +60,8 @@
     padding: 1.5rem;
     max-width: 360px;
     width: 100%;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-lg);
   }
 
   .message {
@@ -94,7 +95,7 @@
   .confirm-btn {
     padding: 0.5rem 1rem;
     font-size: 0.9375rem;
-    color: #fff;
+    color: var(--color-on-primary);
     background: var(--color-danger);
     border: none;
     border-radius: var(--radius-md);

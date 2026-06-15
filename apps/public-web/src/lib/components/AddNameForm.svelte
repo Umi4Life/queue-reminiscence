@@ -92,7 +92,7 @@
   .submit-btn {
     padding: 0.625rem 1.25rem;
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-on-primary);
     border: none;
     border-radius: var(--radius-md);
     font-size: 0.9375rem;

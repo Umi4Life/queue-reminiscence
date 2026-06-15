@@ -25,7 +25,7 @@
 
 <main class="login-page">
   <div class="login-card">
-    <h1>Admin Login</h1>
+    <h1 class="display-title">Admin Login</h1>
 
     {#if error}
       <p class="error">{error}</p>
@@ -73,7 +73,7 @@
   }
 
   h1 {
-    font-size: 1.25rem;
+    font-size: 1.75rem;
     font-weight: 600;
     margin-bottom: 1.5rem;
   }
@@ -112,7 +112,7 @@
 
   button {
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-on-primary);
     border: none;
     border-radius: var(--radius-sm);
     padding: 0.625rem 1rem;

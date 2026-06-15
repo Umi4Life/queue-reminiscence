@@ -262,7 +262,7 @@
 
   .btn-primary {
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-on-primary);
   }
 
   .btn-primary:hover:not(:disabled) {
@@ -271,7 +271,7 @@
 
   .btn-danger {
     background: var(--color-danger);
-    color: #fff;
+    color: var(--color-on-primary);
   }
 
   .btn-danger:hover:not(:disabled) {
@@ -279,19 +279,19 @@
   }
 
   .btn-secondary {
-    background: #f3f4f6;
+    background: var(--color-surface-raised);
     color: var(--color-text-strong);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-border-strong);
   }
 
   .btn-secondary:hover:not(:disabled) {
-    background: var(--color-border);
+    background: var(--color-border-strong);
   }
 
   .rotate-result {
     margin-top: 1rem;
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
+    background: var(--color-info-bg);
+    border: 1px solid var(--color-info-border);
     border-radius: var(--radius-md);
     padding: 0.875rem 1rem;
   }
@@ -299,13 +299,13 @@
   .rotate-label {
     font-size: 0.8125rem;
     font-weight: 600;
-    color: var(--color-primary-hover);
+    color: var(--color-info-text);
     margin-bottom: 0.375rem;
   }
 
   .one-time {
     font-weight: 400;
-    color: #3b82f6;
+    color: var(--color-info-text-soft);
   }
 
   .rotate-url {
@@ -321,6 +321,10 @@
     max-width: 100%;
     height: auto;
     margin: 0.75rem auto 0;
+    /* White backing is intentional — QR codes need a light quiet zone to scan. */
+    background: #fff;
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
   }
 
   .rotate-qr-actions {
@@ -332,7 +336,7 @@
 
   .rotate-qr-help {
     font-size: 0.8125rem;
-    color: #1e40af;
+    color: var(--color-info-text-soft);
     margin: 0 0 0.75rem;
     text-align: center;
   }

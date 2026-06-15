@@ -39,7 +39,7 @@
     <div class="header-inner">
       <div>
         <p class="header-label">Admin</p>
-        <h1 class="header-name">{data.session?.admin.displayName ?? ""}</h1>
+        <h1 class="header-name display-title">{data.session?.admin.displayName ?? ""}</h1>
       </div>
       <button class="logout-btn" onclick={doLogout} disabled={logoutBusy}>
         {logoutBusy ? "Logging out…" : "Log out"}
@@ -114,9 +114,8 @@
   }
 
   .header-name {
-    font-size: 1.125rem;
+    font-size: 1.375rem;
     font-weight: 600;
-    color: var(--color-text);
   }
 
   .logout-btn {
@@ -160,7 +159,7 @@
 
   .new-board-btn {
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-on-primary);
     border: none;
     border-radius: var(--radius-sm);
     padding: 0.375rem 0.75rem;
