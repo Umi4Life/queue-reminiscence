@@ -25,21 +25,25 @@ export function healthRoutes(deps: HealthRouteDeps = {}) {
         tags: ["Health"],
       },
     })
-    .get("/readyz", async ({ set }) => {
-      const checkDatabase = deps.checkDatabase ?? (async () => false);
-      const ready = await checkDatabase();
+    .get(
+      "/readyz",
+      async ({ set }) => {
+        const checkDatabase = deps.checkDatabase ?? (async () => false);
+        const ready = await checkDatabase();
 
-      if (!ready) {
-        set.status = 503;
-        return { ok: false };
-      }
+        if (!ready) {
+          set.status = 503;
+          return { ok: false };
+        }
 
-      return { ok: true };
-    }, {
-      detail: {
-        summary: "Readiness probe",
-        description: "Returns { ok: true } only when the database is reachable.",
-        tags: ["Health"],
+        return { ok: true };
       },
-    });
+      {
+        detail: {
+          summary: "Readiness probe",
+          description: "Returns { ok: true } only when the database is reachable.",
+          tags: ["Health"],
+        },
+      },
+    );
 }

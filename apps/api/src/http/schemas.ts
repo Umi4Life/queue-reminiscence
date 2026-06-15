@@ -19,7 +19,10 @@ export const LoginBody = t.Object({
 });
 
 export const ClaimAccessBody = t.Object({
-  accessCode: t.String({ minLength: 1, description: "Raw access code from a QR scan or URL parameter." }),
+  accessCode: t.String({
+    minLength: 1,
+    description: "Raw access code from a QR scan or URL parameter.",
+  }),
 });
 
 export const AddEntryBody = t.Object({
@@ -33,7 +36,10 @@ export const AddEntryBody = t.Object({
 export const CreateBoardBody = t.Object({
   venueId: t.String({ format: "uuid" }),
   slug: t.String({ pattern: SlugPattern, description: "Unique within the venue." }),
-  publicSlug: t.String({ pattern: SlugPattern, description: "Globally unique. Used in public board URLs." }),
+  publicSlug: t.String({
+    pattern: SlugPattern,
+    description: "Globally unique. Used in public board URLs.",
+  }),
   name: t.String({ minLength: 1 }),
   description: t.Optional(t.Nullable(t.String())),
   publicViewPolicy: t.Optional(PublicViewPolicy),
