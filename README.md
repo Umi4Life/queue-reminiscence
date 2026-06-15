@@ -87,7 +87,9 @@ Required core variables include:
 
 ## Deploy with Docker
 
-Queue Reminiscence ships as three containerized apps (`qr-api`, `qr-admin`, `qr-display`). Two compose files are provided (from PR #40):
+### Local dev (docker compose)
+
+Queue Reminiscence ships three per-app Dockerfiles used by the compose stack. Two compose files are provided:
 
 | File                         | Use case                                                           |
 | ---------------------------- | ------------------------------------------------------------------ |
@@ -112,6 +114,29 @@ Full guides:
 
 - [Local development quickstart](docs/deployment/local-development.md)
 - [Homelab deployment with Traefik + external Postgres](docs/deployment/homelab-traefik-postgres.md)
+
+### Registry image (`Dockerfile`)
+
+The root `Dockerfile` builds a **single combined image** containing all three apps. Select which process to run at container start via the `APP` environment variable:
+
+```bash
+# API — runs DB migrations then starts the server
+docker run -e APP=api -e DATABASE_URL=... -p 3002:3002 ghcr.io/<owner>/queue-reminiscence:latest
+
+# Admin frontend
+docker run -e APP=admin-web -e ORIGIN=https://admin.example.com -p 3001:3001 ghcr.io/<owner>/queue-reminiscence:latest
+
+# Public frontend
+docker run -e APP=public-web -e ORIGIN=https://app.example.com -p 3000:3000 ghcr.io/<owner>/queue-reminiscence:latest
+```
+
+| `APP` value  | Default port | Notes                                          |
+| ------------ | ------------ | ---------------------------------------------- |
+| `api`        | 3002         | Runs migrations before starting; needs `DATABASE_URL` |
+| `admin-web`  | 3001         | Override with `PORT`; set `ORIGIN` for CSRF    |
+| `public-web` | 3000         | Override with `PORT`; set `ORIGIN` for CSRF    |
+
+CI pushes this image to `ghcr.io/<owner>/queue-reminiscence` on every merge to `main`, tagged as `:latest` and `:<git-sha>`.
 
 ## Current status
 
