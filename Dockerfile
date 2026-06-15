@@ -19,12 +19,14 @@ RUN bun install --frozen-lockfile
 
 # ── Stage 2: build admin-web ─────────────────────────────────────────
 FROM deps AS admin-builder
+COPY packages/ ./packages/
 COPY apps/admin-web ./apps/admin-web
 ENV GCP_BUILDPACKS=1
 RUN bun run --cwd apps/admin-web build
 
 # ── Stage 3: build public-web ────────────────────────────────────────
 FROM deps AS public-builder
+COPY packages/ ./packages/
 COPY apps/public-web ./apps/public-web
 ENV GCP_BUILDPACKS=1
 RUN bun run --cwd apps/public-web build
