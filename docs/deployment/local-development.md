@@ -2,8 +2,7 @@
 
 This guide covers running the full Queue Reminiscence stack locally using Docker Compose.
 
-> **Compose files:** `docker-compose.yml` (full dev stack with Postgres) is delivered in PR #40.  
-> Until that PR is merged, start Postgres separately and run the apps with `bun run dev` (see [Bare-Bun Dev](#bare-bun-dev) below).
+> Prefer running without Docker? Start Postgres separately and run the apps directly — see [Bare-Bun Dev](#bare-bun-dev) below.
 
 ## Prerequisites
 
@@ -107,7 +106,7 @@ bun run --cwd packages/db db:migrate
 
 ## Bare-Bun Dev
 
-If you prefer to run apps without Docker (pre-PR #40, or for rapid iteration):
+If you prefer to run apps without Docker (e.g. for rapid iteration):
 
 ```bash
 # Start Postgres however you like (Docker, Homebrew, system package)

@@ -5,8 +5,7 @@ This guide covers deploying Queue Reminiscence on a self-hosted Linux machine wi
 - **External PostgreSQL** managed by your homelab (Postgres does not run in this compose stack).
 - **External Traefik** as the reverse proxy/TLS terminator (Traefik does not run in this compose stack).
 
-> **Compose file:** `docker-compose.homelab.yml` (app-only overlay) is delivered in PR #40.  
-> Reference this contract now; amend filenames/labels after PR #40 merges.
+> **Compose file:** this guide uses `docker-compose.homelab.yml`, the app-only overlay for external Postgres + Traefik.
 
 ---
 

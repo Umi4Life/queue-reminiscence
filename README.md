@@ -1,209 +1,140 @@
 # Queue Reminiscence
 
-Queue Reminiscence is an operator-managed digital queue board for arcades and casual venues.
+> An operator-managed digital queue board for arcades and casual venues — the feel of a paper queue sheet, with QR-derived edit access, public history, and staff controls.
 
-It preserves the familiar behavior of paper queue sheets while adding QR-derived edit access, public activity history, staff controls, soft deletion, and a future-friendly display-state API.
+<p>
+  <img alt="Runtime: Bun" src="https://img.shields.io/badge/Runtime-Bun%201.2-black?logo=bun&logoColor=white">
+  <img alt="API: Elysia.js" src="https://img.shields.io/badge/API-Elysia.js%201.3-7B3FE4?logo=elysia&logoColor=white">
+  <img alt="Frontend: Svelte" src="https://img.shields.io/badge/Frontend-Svelte%205%20%2F%20SvelteKit%202-FF3E00?logo=svelte&logoColor=white">
+  <img alt="Database: PostgreSQL" src="https://img.shields.io/badge/Database-PostgreSQL%2016-4169E1?logo=postgresql&logoColor=white">
+</p>
 
-## MVP scope
+**Built with [Bun](https://bun.sh) · [Elysia.js](https://elysiajs.com) · [Svelte](https://svelte.dev).** A single Bun workspace runs an Elysia API and two SvelteKit apps end to end.
 
-The MVP is focused on:
+## What it is
 
-- admin/operator accounts
-- Organization → Venue → Board hierarchy
-- readable public board slugs
-- no participant accounts
-- QR/access-code-derived public mutation sessions
-- public add/remove for anyone with valid current access
-- visible board events
-- soft-deleted queue entries
-- display-state support for polling displays
-- local development with Docker/Postgres
-- homelab deployment with external Postgres and Traefik
+Queue Reminiscence replaces the paper queue sheet at an arcade cabinet (or any casual venue) while keeping its social, no-account culture intact:
 
-Out of scope for MVP: participant accounts, billing, SaaS signup, queue reordering, notifications, CAPTCHA by default, and MQTT publishing as a required feature.
+- **No participant accounts.** Players scan the board's current QR, see a readable URL, type any display name, and add or remove themselves. No signup, no login.
+- **QR-derived access.** Edit access comes from the current, rotating QR credential. Staff rotate it to cut off abuse — old codes simply stop working.
+- **Visible history.** Every add, remove, reset, open, and close is logged and publicly viewable, so the board self-moderates the way a physical one does.
+- **Operator-managed.** Venue staff own the boards from a separate admin app — open/close/reset, soft-delete entries, rotate access — under an Organization → Venue → Board hierarchy.
+- **Display-friendly.** A polling display-state API (ETag/304) feeds e-ink boards and other read-only displays.
 
-## Repository layout
+## Tech stack
+
+| Layer            | Technology                      | Where             | Port   |
+| ---------------- | ------------------------------- | ----------------- | ------ |
+| Runtime / PM     | **Bun** 1.2.23 (workspaces)     | repo root         | —      |
+| API              | **Elysia.js** 1.3.8 on Bun      | `apps/api`        | `3002` |
+| Public web       | **SvelteKit 2 / Svelte 5**      | `apps/public-web` | `3000` |
+| Admin web        | **SvelteKit 2 / Svelte 5**      | `apps/admin-web`  | `3001` |
+| Database         | **PostgreSQL 16** + Drizzle ORM | `packages/db`     | `5432` |
+| API docs         | OpenAPI / Swagger UI            | `apps/api`        | `3002` |
+| End-to-end tests | Playwright (isolated Postgres)  | `tests/e2e`       | `5433` |
+
+## Architecture at a glance
 
 ```text
 apps/
-  api/          # Bun + Elysia API
-  public-web/   # SvelteKit participant app
-  admin-web/    # SvelteKit operator app
+  api/          # Bun + Elysia.js API — owns all state, auth, and business logic
+  public-web/   # SvelteKit participant app — claim access + view/edit board
+  admin-web/    # SvelteKit operator app — manage boards, rotate QR, operations
 packages/
-  config/       # shared environment parsing
-  db/           # Drizzle schema and migrations
+  config/       # shared environment parsing & runtime config
+  db/           # Drizzle schema, migrations, and seed
   domain/       # shared domain validation and policies
-  ui/           # shared UI package placeholder
+  ui/           # shared CSS tokens / base styles
 docs/
-  architecture/
-  plans/
-  product/
+  deployment/   # living operational guides (local + homelab)
+  journal/      # preserved MVP build history (architecture, plans, product)
 ```
 
-## Development
+The API is the single source of truth: the SvelteKit apps proxy `/api` to it and hold no authorization logic of their own.
 
-This project uses Bun workspaces.
+## Quick start (local, bare Bun)
+
+You need [Bun](https://bun.sh) ≥ 1.2.23 and a PostgreSQL 16 instance.
 
 ```bash
+# 1. Install workspace dependencies
 bun install
-bun run check
-```
 
-After Postgres is running and migrations are applied, seed the local demo org, venue, board, and admin:
+# 2. Start Postgres (any way you like — e.g. Docker)
+docker run --name qr-pg -p 5432:5432 \
+  -e POSTGRES_USER=queue_reminiscence \
+  -e POSTGRES_PASSWORD=queue_reminiscence \
+  -e POSTGRES_DB=queue_reminiscence \
+  -d postgres:16-alpine
 
-```bash
+# 3. Configure environment
 cp .env.example .env
-# set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD in .env
+# Set SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, and rotate the three *_SECRET values
+
+# 4. Migrate and seed the demo org / venue / board / admin
 bun run --cwd packages/db db:migrate
 bun run --cwd packages/db db:seed
 ```
 
-Current quality gate:
+Then run the three apps, each in its own terminal:
 
 ```bash
-bun run format:check
-bun run lint
-bun run typecheck
-bun test --pass-with-no-tests
+bun run --cwd apps/api dev          # API        → http://localhost:3002
+bun run --cwd apps/public-web dev   # Public web  → http://localhost:3000
+bun run --cwd apps/admin-web dev    # Admin web   → http://localhost:3001
 ```
 
-## Configuration
+Open <http://localhost:3001>, sign in with your seed admin credentials, open the demo board, rotate the QR link, then open the access URL in another tab (or on a phone).
 
-Copy `.env.example` to `.env` for local development and replace placeholder secrets before running services.
+> **Heads up:** `PUBLIC_APP_URL` in the root `.env` must be exactly `http://localhost:3000` — public session cookies and CORS depend on an exact origin match.
 
-Required core variables include:
+## Quick start (Docker Compose)
 
-- `DATABASE_URL`
-- `PUBLIC_APP_URL`
-- `ADMIN_APP_URL`
-- `API_PUBLIC_BASE_URL`
-- `API_ADMIN_BASE_URL`
-- `SESSION_SECRET`
-- `TOKEN_HMAC_SECRET`
-- `RATE_LIMIT_HMAC_SECRET`
-- `TRUST_PROXY`
-- `ADMIN_SESSION_TTL_DAYS`
-- `PUBLIC_MUTATION_SESSION_TTL_HOURS`
-
-## Deploy with Docker
-
-### Local dev (docker compose)
-
-Queue Reminiscence ships three per-app Dockerfiles used by the compose stack. Two compose files are provided:
-
-| File                         | Use case                                                           |
-| ---------------------------- | ------------------------------------------------------------------ |
-| `docker-compose.yml`         | Local dev — full stack including Postgres (`qr-postgres` on :5432) |
-| `docker-compose.homelab.yml` | Homelab — app-only overlay for external Postgres + Traefik         |
-
-Quick start (local dev):
+The full stack, Postgres included:
 
 ```bash
 cp .env.example .env
-# Set SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, and rotate the three secret values
+# Set SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, and rotate the three *_SECRET values
 docker compose up --build -d
 bun run --cwd packages/db db:migrate
 bun run --cwd packages/db db:seed
 ```
 
-Open `http://localhost:3001` and sign in with your seed admin credentials.
+Then open <http://localhost:3001>. See [`docs/deployment/local-development.md`](docs/deployment/local-development.md) for the service map and troubleshooting, and [`docs/deployment/homelab-traefik-postgres.md`](docs/deployment/homelab-traefik-postgres.md) for a homelab deployment with external Postgres + Traefik (`TRUST_PROXY=true`).
 
-For a homelab deployment with external Postgres and Traefik, set `TRUST_PROXY=true` in `.env`.
+## API docs
 
-Full guides:
+The Elysia API serves interactive **Swagger UI at <http://localhost:3002/api/docs>** (raw spec at `/api/openapi.yaml`) once the API is running.
 
-- [Local development quickstart](docs/deployment/local-development.md)
-- [Homelab deployment with Traefik + external Postgres](docs/deployment/homelab-traefik-postgres.md)
+## Configuration
 
-### Registry image (`Dockerfile`)
+Copy `.env.example` to `.env` and replace the placeholder secrets before running anything. Required core variables:
 
-The root `Dockerfile` builds a **single combined image** containing all three apps. Select which process to run at container start via the `APP` environment variable:
+`DATABASE_URL`, `PUBLIC_APP_URL`, `ADMIN_APP_URL`, `API_PUBLIC_BASE_URL`, `API_ADMIN_BASE_URL`, `SESSION_SECRET`, `TOKEN_HMAC_SECRET`, `RATE_LIMIT_HMAC_SECRET`, `TRUST_PROXY`, `ADMIN_SESSION_TTL_DAYS`, `PUBLIC_MUTATION_SESSION_TTL_HOURS`.
 
-```bash
-# API — runs DB migrations then starts the server
-docker run -e APP=api -e DATABASE_URL=... -p 3002:3002 ghcr.io/<owner>/queue-reminiscence:latest
+The three `*_SECRET` values must be ≥ 32 chars in production and must never be left as `change-me-in-development`. See [`docs/deployment/local-development.md`](docs/deployment/local-development.md) for a full table with examples.
 
-# Admin frontend
-docker run -e APP=admin-web -e ORIGIN=https://admin.example.com -p 3001:3001 ghcr.io/<owner>/queue-reminiscence:latest
-
-# Public frontend
-docker run -e APP=public-web -e ORIGIN=https://app.example.com -p 3000:3000 ghcr.io/<owner>/queue-reminiscence:latest
-```
-
-| `APP` value  | Default port | Notes                                                 |
-| ------------ | ------------ | ----------------------------------------------------- |
-| `api`        | 3002         | Runs migrations before starting; needs `DATABASE_URL` |
-| `admin-web`  | 3001         | Override with `PORT`; set `ORIGIN` for CSRF           |
-| `public-web` | 3000         | Override with `PORT`; set `ORIGIN` for CSRF           |
-
-CI pushes this image to `ghcr.io/<owner>/queue-reminiscence` on every merge to `main`, tagged as `:latest` and `:<git-sha>`.
-
-## Current status
-
-**MVP complete** — Phases 0–14 of the implementation plan are done on `main`.
-
-Current capabilities include:
-
-- admin session auth and RBAC
-- admin organization/venue/board management
-- board open/close/reset operations
-- board access-credential rotation
-- public access claim and mutation-session cookies
-- public board read, events, and add/remove mutations
-- HMAC audit metadata on public mutations
-- Postgres-backed public mutation rate limiting
-- QR SVG generation for public access URLs
-- display-state polling API with ETag/304 support
-- **public web app** (`apps/public-web/`, port **3000**) — `/q/[accessCode]` claim and `/b/[publicSlug]` board UI
-- **admin web app** (`apps/admin-web/`, port **3001**) — login, dashboard, board operations, QR preview, create/edit/delete boards
-- **E2E tests** (Playwright) — MVP critical path via `bun run e2e`
-- **Docker deployment** — `docker-compose.yml` (full dev stack) and `docker-compose.homelab.yml` (app-only overlay for external Postgres + Traefik)
-
-Merged-main quality gate (2026-06-15): `bun run check` — 231 unit tests passing (6 `createDbRateLimiter` cases skip when `DATABASE_URL` unset); `bun run e2e` — 10/10 pass.
-
-### Local three-app dev
-
-With Postgres running and migrations applied:
+## Testing
 
 ```bash
-cp .env.example .env
-# set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD in .env
-bun run --cwd packages/db db:migrate
-bun run --cwd packages/db db:seed
+# Quality gate — format, lint, typecheck, unit tests
+bun run check
 
-# terminal 1 — API on :3002
-bun run --cwd apps/api dev
-
-# terminal 2 — public web on :3000
-bun run --cwd apps/public-web dev
-
-# terminal 3 — admin web on :3001
-bun run --cwd apps/admin-web dev
-```
-
-Open `http://localhost:3001`, sign in with seed admin credentials, open a board, rotate the QR link, then open the access URL in another tab (or on a phone). `PUBLIC_APP_URL` in the root `.env` must be exactly `http://localhost:3000` for CORS and public session cookies.
-
-### E2E tests
-
-Playwright boots its own Postgres container (`qr-smoke-p12` on :5433), migrates, seeds, and starts all three apps:
-
-```bash
-bun run e2e:install   # once — Chromium + system deps
+# End-to-end (Playwright)
+bun run e2e:install   # once — installs Chromium + system deps
 bun run e2e
 ```
 
-See [`tests/e2e/README.md`](tests/e2e/README.md) for ports and prerequisites.
+The e2e suite boots its **own isolated Postgres container on port 5433** (never the dev database), migrates, seeds, and starts all three apps before running.
 
-See the MVP plan for the build sequence:
+## Documentation
 
-- [`docs/plans/2026-06-13-mvp-implementation-plan.md`](docs/plans/2026-06-13-mvp-implementation-plan.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md) — dev setup, workspace layout, quality gate, conventions.
+- [`docs/deployment/`](docs/deployment/) — local and homelab operational guides.
+- [`docs/journal/`](docs/journal/) — preserved MVP build history (architecture, product PRD, and the 14-phase plan + completion journals).
 
-## Product and architecture docs
+## Status
 
-- [`docs/product/queue-reminiscence-prd.md`](docs/product/queue-reminiscence-prd.md)
-- [`docs/architecture/mvp-technical-architecture.md`](docs/architecture/mvp-technical-architecture.md)
+**MVP complete** — Phases 0–14 are merged on `main`. Latest quality gate: `bun run check` green (231 unit tests; 6 `createDbRateLimiter` cases skip without `DATABASE_URL`), `bun run e2e` 10/10 passing.
 
-## Deployment docs
-
-- [`docs/deployment/local-development.md`](docs/deployment/local-development.md)
-- [`docs/deployment/homelab-traefik-postgres.md`](docs/deployment/homelab-traefik-postgres.md)
+CI builds a single combined Docker image and publishes it to `ghcr.io/<owner>/queue-reminiscence` on every merge to `main` (tagged `:latest` and `:<git-sha>`). At container start, the `APP` environment variable selects which process to run (`api`, `admin-web`, or `public-web`).
