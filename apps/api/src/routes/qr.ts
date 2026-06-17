@@ -2,10 +2,12 @@ import type { AppConfig } from "@queue-reminiscence/config";
 import type { Database } from "@queue-reminiscence/db";
 import { boardAccessCredentials } from "@queue-reminiscence/db/schema";
 import { eq } from "drizzle-orm";
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 
 import { buildPublicAccessUrl } from "../access/access-url";
 import { notFoundError } from "../http/errors";
+import { apiModels } from "../http/models";
+import { API_TAGS } from "../http/openapi-config";
 import { hashClientIp } from "../public/audit-metadata";
 import { renderQrSvg } from "../qr/render-svg";
 import type { RateLimiter } from "../rate-limit/rate-limiter";
@@ -25,7 +27,7 @@ const QR_IP_LIMIT = { scope: "qr_ip_1m", windowSeconds: 60, maxCount: 30 } as co
 export function qrRoutes(deps: QrRouteDeps) {
   const { config, db, rateLimiter } = deps;
 
-  return new Elysia({ name: "qr-routes" }).get(
+  return new Elysia({ name: "qr-routes" }).use(apiModels).get(
     "/api/qr/:accessCode.svg",
     async ({ params, request, set }) => {
       const ipKey = hashClientIp(request, config) ?? "unknown";
@@ -64,11 +66,16 @@ export function qrRoutes(deps: QrRouteDeps) {
       return svg;
     },
     {
+      response: {
+        200: t.String({ description: "SVG QR code document (Content-Type: image/svg+xml)." }),
+        404: "ErrorResponse",
+        429: "ErrorResponse",
+      },
       detail: {
         summary: "Render QR code as SVG",
         description:
           "Generates an SVG QR code for the given access code. Returns 404 if the credential is inactive or expired.\n\nRate limit: 30 per min per IP.",
-        tags: ["QR"],
+        tags: [API_TAGS.qr],
       },
     },
   );

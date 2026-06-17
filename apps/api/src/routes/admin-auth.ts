@@ -6,6 +6,9 @@ import { ADMIN_SESSION_COOKIE_NAME } from "../auth/admin-sessions";
 import { readAdminSessionToken } from "../auth/admin-route-auth";
 import { unauthorizedError } from "../http/errors";
 import { apiSuccess } from "../http/response";
+import { apiModels } from "../http/models";
+import { API_TAGS } from "../http/openapi-config";
+import { AdminSessionContext as AdminSessionContextSchema, success } from "../http/schemas";
 import { hashClientIp } from "../public/audit-metadata";
 import type { RateLimiter } from "../rate-limit/rate-limiter";
 import { hashOpaqueToken } from "../security/tokens";
@@ -77,6 +80,7 @@ function serializeLoginResult(result: LoginResult): AdminSessionContext {
 
 export function adminAuthRoutes(deps: AdminAuthRouteDeps) {
   return new Elysia({ name: "admin-auth-routes" })
+    .use(apiModels)
     .post(
       "/api/admin/auth/login",
       async ({ body, request, set }) => {
@@ -92,31 +96,63 @@ export function adminAuthRoutes(deps: AdminAuthRouteDeps) {
         return apiSuccess(serializeLoginResult(result));
       },
       {
-        body: t.Object({
-          email: t.String({ minLength: 1 }),
-          password: t.String({ minLength: 1 }),
-        }),
+        body: "LoginBody",
+        response: {
+          200: success(AdminSessionContextSchema),
+          400: "ErrorResponse",
+          401: "ErrorResponse",
+          429: "ErrorResponse",
+        },
+        detail: {
+          summary: "Admin login",
+          description:
+            "Authenticates an admin and sets the `qr_admin_session` cookie. Rate limited per IP and per email.",
+          tags: [API_TAGS.adminAuth],
+        },
       },
     )
-    .post("/api/admin/auth/logout", async ({ request, set }) => {
-      const token = readAdminSessionToken(request.headers);
+    .post(
+      "/api/admin/auth/logout",
+      async ({ request, set }) => {
+        const token = readAdminSessionToken(request.headers);
 
-      if (token) {
-        await deps.authService.logout(token);
-      }
+        if (token) {
+          await deps.authService.logout(token);
+        }
 
-      set.headers["set-cookie"] = serializeExpiredSessionCookie(deps.config);
+        set.headers["set-cookie"] = serializeExpiredSessionCookie(deps.config);
 
-      return apiSuccess({ loggedOut: true });
-    })
-    .get("/api/admin/me", async ({ request }) => {
-      const token = readAdminSessionToken(request.headers);
+        return apiSuccess({ loggedOut: true });
+      },
+      {
+        response: { 200: success(t.Object({ loggedOut: t.Literal(true) })) },
+        detail: {
+          summary: "Admin logout",
+          description: "Revokes the current admin session and clears the session cookie.",
+          tags: [API_TAGS.adminAuth],
+        },
+      },
+    )
+    .get(
+      "/api/admin/me",
+      async ({ request }) => {
+        const token = readAdminSessionToken(request.headers);
 
-      if (!token) {
-        throw unauthorizedError();
-      }
+        if (!token) {
+          throw unauthorizedError();
+        }
 
-      const context = await deps.authService.resolve(token);
-      return apiSuccess(context);
-    });
+        const context = await deps.authService.resolve(token);
+        return apiSuccess(context);
+      },
+      {
+        response: { 200: success(AdminSessionContextSchema), 401: "ErrorResponse" },
+        detail: {
+          summary: "Current admin context",
+          description: "Returns the authenticated admin identity and their memberships.",
+          tags: [API_TAGS.adminAuth],
+          security: [{ AdminSession: [] }],
+        },
+      },
+    );
 }

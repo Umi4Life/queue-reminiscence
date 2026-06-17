@@ -8,6 +8,9 @@ import type { AdminAuthService } from "../auth/admin-sessions";
 import { requireAdminSession } from "../auth/admin-route-auth";
 import { forbiddenError, notFoundError, validationError } from "../http/errors";
 import { apiSuccess } from "../http/response";
+import { apiModels } from "../http/models";
+import { API_TAGS } from "../http/openapi-config";
+import { BoardSummary, RotatedBoardAccessCredential, success } from "../http/schemas";
 
 export interface AdminBoardsRouteDeps {
   authService: AdminAuthService;
@@ -15,15 +18,14 @@ export interface AdminBoardsRouteDeps {
   boardAccessService: BoardAccessService;
 }
 
-const UUID_PATTERN = "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
+const adminBoardErrors = {
+  400: "ErrorResponse",
+  401: "ErrorResponse",
+  403: "ErrorResponse",
+  404: "ErrorResponse",
+} as const;
 
-const PUBLIC_VIEW_POLICY = t.Union([t.Literal("open"), t.Literal("access_code_required")]);
-
-const PUBLIC_MUTATION_POLICY = t.Union([
-  t.Literal("access_code_required"),
-  t.Literal("staff_only"),
-  t.Literal("disabled"),
-]);
+const boardOperationData = t.Object({ board: BoardSummary, changed: t.Boolean() });
 
 function conflictMessage(field: "slug" | "publicSlug"): string {
   if (field === "slug") {
@@ -65,38 +67,30 @@ async function runBoardOperationRoute(
 
 export function adminBoardsRoutes(deps: AdminBoardsRouteDeps) {
   return new Elysia({ name: "admin-boards-routes" })
-    .model({
-      "board.createBody": t.Object({
-        venueId: t.String({ pattern: UUID_PATTERN }),
-        slug: t.String({ minLength: 1 }),
-        publicSlug: t.String({ minLength: 1 }),
-        name: t.String({ minLength: 1 }),
-        description: t.Optional(t.Nullable(t.String())),
-        status: t.Optional(t.Literal("closed")),
-        publicViewPolicy: t.Optional(PUBLIC_VIEW_POLICY),
-        publicAddPolicy: t.Optional(PUBLIC_MUTATION_POLICY),
-        publicRemovePolicy: t.Optional(PUBLIC_MUTATION_POLICY),
-        qrRotationPolicy: t.Optional(t.Literal("manual")),
-        qrRotationIntervalMinutes: t.Optional(t.Null()),
-      }),
-      "board.patchBody": t.Object({
-        slug: t.Optional(t.String({ minLength: 1 })),
-        publicSlug: t.Optional(t.String({ minLength: 1 })),
-        name: t.Optional(t.String({ minLength: 1 })),
-        description: t.Optional(t.Nullable(t.String())),
-        publicViewPolicy: t.Optional(PUBLIC_VIEW_POLICY),
-        publicAddPolicy: t.Optional(PUBLIC_MUTATION_POLICY),
-        publicRemovePolicy: t.Optional(PUBLIC_MUTATION_POLICY),
-      }),
-    })
-    .get("/api/admin/boards", async ({ request }) => {
-      const session = await requireAdminSession(deps.authService, request.headers);
-      const boards = await deps.boardManagementService.listBoards({
-        memberships: session.memberships,
-      });
+    .use(apiModels)
+    .get(
+      "/api/admin/boards",
+      async ({ request }) => {
+        const session = await requireAdminSession(deps.authService, request.headers);
+        const boards = await deps.boardManagementService.listBoards({
+          memberships: session.memberships,
+        });
 
-      return apiSuccess({ boards });
-    })
+        return apiSuccess({ boards });
+      },
+      {
+        response: {
+          200: success(t.Object({ boards: t.Array(BoardSummary) })),
+          401: "ErrorResponse",
+        },
+        detail: {
+          summary: "List boards",
+          description: "Returns boards the authenticated admin can access, filtered by RBAC role.",
+          tags: [API_TAGS.adminBoards],
+          security: [{ AdminSession: [] }],
+        },
+      },
+    )
     .post(
       "/api/admin/boards",
       async ({ request, body }) => {
@@ -138,21 +132,47 @@ export function adminBoardsRoutes(deps: AdminBoardsRouteDeps) {
 
         return apiSuccess({ board: result.board });
       },
-      { body: "board.createBody" },
+      {
+        body: "CreateBoardBody",
+        response: { 200: success(t.Object({ board: BoardSummary })), ...adminBoardErrors },
+        detail: {
+          summary: "Create board",
+          description: "Creates a board in the closed state. Slugs must be unique within scope.",
+          tags: [API_TAGS.adminBoards],
+          security: [{ AdminSession: [] }],
+        },
+      },
     )
-    .get("/api/admin/boards/:boardId", async ({ request, params }) => {
-      const session = await requireAdminSession(deps.authService, request.headers);
-      const board = await deps.boardManagementService.getBoard(
-        { memberships: session.memberships },
-        params.boardId,
-      );
+    .get(
+      "/api/admin/boards/:boardId",
+      async ({ request, params }) => {
+        const session = await requireAdminSession(deps.authService, request.headers);
+        const board = await deps.boardManagementService.getBoard(
+          { memberships: session.memberships },
+          params.boardId,
+        );
 
-      if (!board) {
-        throw notFoundError();
-      }
+        if (!board) {
+          throw notFoundError();
+        }
 
-      return apiSuccess({ board });
-    })
+        return apiSuccess({ board });
+      },
+      {
+        params: "BoardIdParams",
+        response: {
+          200: success(t.Object({ board: BoardSummary })),
+          401: "ErrorResponse",
+          404: "ErrorResponse",
+        },
+        detail: {
+          summary: "Get board",
+          description: "Returns a single board by id.",
+          tags: [API_TAGS.adminBoards],
+          security: [{ AdminSession: [] }],
+        },
+      },
+    )
     .patch(
       "/api/admin/boards/:boardId",
       async ({ request, params, body }) => {
@@ -214,52 +234,144 @@ export function adminBoardsRoutes(deps: AdminBoardsRouteDeps) {
 
         return apiSuccess({ board: result.board });
       },
-      { body: "board.patchBody" },
+      {
+        params: "BoardIdParams",
+        body: "PatchBoardBody",
+        response: { 200: success(t.Object({ board: BoardSummary })), ...adminBoardErrors },
+        detail: {
+          summary: "Update board",
+          description: "Patches one or more board fields. At least one field is required.",
+          tags: [API_TAGS.adminBoards],
+          security: [{ AdminSession: [] }],
+        },
+      },
     )
-    .delete("/api/admin/boards/:boardId", async ({ request, params }) => {
-      const session = await requireAdminSession(deps.authService, request.headers);
-      const result = await deps.boardManagementService.deleteBoard(
-        { memberships: session.memberships },
-        params.boardId,
-      );
+    .delete(
+      "/api/admin/boards/:boardId",
+      async ({ request, params }) => {
+        const session = await requireAdminSession(deps.authService, request.headers);
+        const result = await deps.boardManagementService.deleteBoard(
+          { memberships: session.memberships },
+          params.boardId,
+        );
 
-      if (result.status === "not_found") {
-        throw notFoundError();
-      }
+        if (result.status === "not_found") {
+          throw notFoundError();
+        }
 
-      if (result.status === "forbidden") {
-        throw forbiddenError();
-      }
+        if (result.status === "forbidden") {
+          throw forbiddenError();
+        }
 
-      return apiSuccess({ deleted: true });
-    })
-    .post("/api/admin/boards/:boardId/open", async ({ request, params }) =>
-      runBoardOperationRoute(deps, request, params.boardId, (service, rbac, adminUserId, boardId) =>
-        service.openBoard(rbac, adminUserId, boardId),
-      ),
+        return apiSuccess({ deleted: true });
+      },
+      {
+        params: "BoardIdParams",
+        response: {
+          200: success(t.Object({ deleted: t.Literal(true) })),
+          401: "ErrorResponse",
+          403: "ErrorResponse",
+          404: "ErrorResponse",
+        },
+        detail: {
+          summary: "Delete board",
+          description: "Permanently deletes a board and its queue history.",
+          tags: [API_TAGS.adminBoards],
+          security: [{ AdminSession: [] }],
+        },
+      },
     )
-    .post("/api/admin/boards/:boardId/close", async ({ request, params }) =>
-      runBoardOperationRoute(deps, request, params.boardId, (service, rbac, adminUserId, boardId) =>
-        service.closeBoard(rbac, adminUserId, boardId),
-      ),
+    .post(
+      "/api/admin/boards/:boardId/open",
+      async ({ request, params }) =>
+        runBoardOperationRoute(
+          deps,
+          request,
+          params.boardId,
+          (service, rbac, adminUserId, boardId) => service.openBoard(rbac, adminUserId, boardId),
+        ),
+      {
+        params: "BoardIdParams",
+        response: { 200: success(boardOperationData), ...adminBoardErrors },
+        detail: {
+          summary: "Open board",
+          description: "Opens the board for new participants. Idempotent.",
+          tags: [API_TAGS.adminBoards],
+          security: [{ AdminSession: [] }],
+        },
+      },
     )
-    .post("/api/admin/boards/:boardId/reset", async ({ request, params }) =>
-      runBoardOperationRoute(deps, request, params.boardId, (service, rbac, adminUserId, boardId) =>
-        service.resetBoard(rbac, adminUserId, boardId),
-      ),
+    .post(
+      "/api/admin/boards/:boardId/close",
+      async ({ request, params }) =>
+        runBoardOperationRoute(
+          deps,
+          request,
+          params.boardId,
+          (service, rbac, adminUserId, boardId) => service.closeBoard(rbac, adminUserId, boardId),
+        ),
+      {
+        params: "BoardIdParams",
+        response: { 200: success(boardOperationData), ...adminBoardErrors },
+        detail: {
+          summary: "Close board",
+          description: "Closes the board to new participants. Idempotent.",
+          tags: [API_TAGS.adminBoards],
+          security: [{ AdminSession: [] }],
+        },
+      },
     )
-    .post("/api/admin/boards/:boardId/access-credentials/rotate", async ({ request, params }) => {
-      const session = await requireAdminSession(deps.authService, request.headers);
-      const result = await deps.boardAccessService.rotateBoardAccessCredential(
-        { memberships: session.memberships },
-        session.admin.id,
-        params.boardId,
-      );
+    .post(
+      "/api/admin/boards/:boardId/reset",
+      async ({ request, params }) =>
+        runBoardOperationRoute(
+          deps,
+          request,
+          params.boardId,
+          (service, rbac, adminUserId, boardId) => service.resetBoard(rbac, adminUserId, boardId),
+        ),
+      {
+        params: "BoardIdParams",
+        response: { 200: success(boardOperationData), ...adminBoardErrors },
+        detail: {
+          summary: "Reset board",
+          description: "Removes all active queue entries and records a reset event.",
+          tags: [API_TAGS.adminBoards],
+          security: [{ AdminSession: [] }],
+        },
+      },
+    )
+    .post(
+      "/api/admin/boards/:boardId/access-credentials/rotate",
+      async ({ request, params }) => {
+        const session = await requireAdminSession(deps.authService, request.headers);
+        const result = await deps.boardAccessService.rotateBoardAccessCredential(
+          { memberships: session.memberships },
+          session.admin.id,
+          params.boardId,
+        );
 
-      if (result.status === "not_found") {
-        throw notFoundError();
-      }
+        if (result.status === "not_found") {
+          throw notFoundError();
+        }
 
-      return apiSuccess({ board: result.board, credential: result.credential });
-    });
+        return apiSuccess({ board: result.board, credential: result.credential });
+      },
+      {
+        params: "BoardIdParams",
+        response: {
+          200: success(t.Object({ board: BoardSummary, credential: RotatedBoardAccessCredential })),
+          401: "ErrorResponse",
+          403: "ErrorResponse",
+          404: "ErrorResponse",
+        },
+        detail: {
+          summary: "Rotate board access credential",
+          description:
+            "Revokes the current access credential and issues a new one, returning the fresh access URL and QR token preview.",
+          tags: [API_TAGS.adminBoards],
+          security: [{ AdminSession: [] }],
+        },
+      },
+    );
 }

@@ -1,19 +1,21 @@
+import { treaty } from "@elysia/eden";
+import type { App, PublicBoardEventItem, PublicBoardReadData } from "@queue-reminiscence/api/types";
+
 import { API_BASE_URL } from "./env";
 
 type FetchFn = typeof globalThis.fetch;
 
-interface ApiSuccess<T> {
-  ok: true;
-  data: T;
-}
+// Response shapes are sourced from the API package (single source of truth).
+// Date fields are typed `Date` (server `t.Date()` schemas) but arrive as ISO
+// strings over HTTP — consume them via `new Date(value)`.
+export type BoardData = PublicBoardReadData;
+export type QueueEntry = PublicBoardReadData["queue"][number];
+export type MutationAccess = PublicBoardReadData["mutationAccess"];
+export type BoardEvent = PublicBoardEventItem;
 
-interface ApiError {
-  ok: false;
-  error: { code: string; message: string };
-}
-
-type ApiEnvelope<T> = ApiSuccess<T> | ApiError;
-
+// The claim result stays a discriminated union: the server schema is flattened
+// (all fields optional) only to satisfy TypeScript, but the runtime payload is
+// genuinely one of these two shapes, and consumers narrow on `claimed`.
 interface Board {
   id: string;
   publicSlug: string;
@@ -34,85 +36,43 @@ export interface ClaimNotClaimedData {
 
 export type ClaimData = ClaimSuccessData | ClaimNotClaimedData;
 
-export interface QueueEntry {
-  id: string;
-  displayName: string;
-  position: number;
-  sortOrder: number;
-  createdAt: string;
+// Eden derives the `/api` prefix from the route paths, so the treaty domain is
+// the API origin without it.
+function apiOrigin(): string {
+  if (API_BASE_URL.startsWith("http")) return API_BASE_URL.replace(/\/api\/?$/, "");
+  return typeof window !== "undefined" ? window.location.origin : "";
 }
 
-export interface MutationAccess {
-  available: boolean;
-  expiresAt: string | null;
-  canAdd: boolean;
-  canRemove: boolean;
-}
-
-export interface BoardData {
-  organization: { id: string; slug: string; name: string };
-  venue: { id: string; slug: string; name: string };
-  board: {
-    publicSlug: string;
-    name: string;
-    description: string | null;
-    status: "open" | "closed";
-    publicAddPolicy: string;
-    publicRemovePolicy: string;
-    displayVersion: number;
-    updatedAt: string;
-  };
-  queue: QueueEntry[];
-  mutationAccess: MutationAccess;
-}
-
-export interface BoardEvent {
-  id: string;
-  type: string;
-  publicMessage: string;
-  displayNameSnapshot: string | null;
-  createdAt: string;
-}
-
-async function apiFetch<T>(path: string, init: RequestInit, fetchFn: FetchFn): Promise<T> {
-  const response = await fetchFn(`${API_BASE_URL}${path}`, {
-    ...init,
-    credentials: "include",
+function client(fetchFn: FetchFn) {
+  return treaty<App>(apiOrigin(), {
+    fetch: { credentials: "include" },
+    fetcher: fetchFn,
   });
-
-  const envelope = (await response.json()) as ApiEnvelope<T>;
-
-  if (!envelope.ok) {
-    throw new Error(envelope.error.message);
-  }
-
-  return envelope.data;
 }
 
-function jsonPost(body: unknown): RequestInit {
-  return {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  };
+type TreatyResult = { data: unknown; error: { value: unknown } | null };
+
+async function unwrap<T>(call: Promise<TreatyResult>): Promise<T> {
+  const { data, error } = await call;
+  if (error) {
+    const body = error.value as { error?: { message?: string } } | null;
+    throw new Error(body?.error?.message ?? "Request failed");
+  }
+  return (data as { data: T }).data;
 }
 
 export async function claimAccess(
   accessCode: string,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<ClaimData> {
-  return apiFetch<ClaimData>("/public/access/claim", jsonPost({ accessCode }), fetchFn);
+  return unwrap<ClaimData>(client(fetchFn).api.public.access.claim.post({ accessCode }));
 }
 
 export async function getBoard(
   publicSlug: string,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ board: BoardData }> {
-  return apiFetch<{ board: BoardData }>(
-    `/public/boards/${encodeURIComponent(publicSlug)}`,
-    { method: "GET" },
-    fetchFn,
-  );
+  return unwrap<{ board: BoardData }>(client(fetchFn).api.public.boards({ publicSlug }).get());
 }
 
 export async function getBoardEvents(
@@ -120,11 +80,10 @@ export async function getBoardEvents(
   limit?: number,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ events: BoardEvent[] }> {
-  const query = limit !== undefined ? `?limit=${limit}` : "";
-  return apiFetch<{ events: BoardEvent[] }>(
-    `/public/boards/${encodeURIComponent(publicSlug)}/events${query}`,
-    { method: "GET" },
-    fetchFn,
+  return unwrap<{ events: BoardEvent[] }>(
+    client(fetchFn)
+      .api.public.boards({ publicSlug })
+      .events.get(limit !== undefined ? { query: { limit } } : {}),
   );
 }
 
@@ -133,10 +92,8 @@ export async function addEntry(
   displayName: string,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ entry: QueueEntry }> {
-  return apiFetch<{ entry: QueueEntry }>(
-    `/public/boards/${encodeURIComponent(publicSlug)}/entries`,
-    jsonPost({ displayName }),
-    fetchFn,
+  return unwrap<{ entry: QueueEntry }>(
+    client(fetchFn).api.public.boards({ publicSlug }).entries.post({ displayName }),
   );
 }
 
@@ -145,13 +102,11 @@ export async function removeEntry(
   entryId: string,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ removed: boolean }> {
-  return apiFetch<{ removed: boolean }>(
-    `/public/boards/${encodeURIComponent(publicSlug)}/entries/${encodeURIComponent(entryId)}/remove`,
-    { method: "POST" },
-    fetchFn,
+  return unwrap<{ removed: boolean }>(
+    client(fetchFn).api.public.boards({ publicSlug }).entries({ entryId }).remove.post(),
   );
 }
 
 export async function logout(fetchFn: FetchFn = globalThis.fetch): Promise<void> {
-  await apiFetch<{ loggedOut: boolean }>("/public/access/logout", { method: "POST" }, fetchFn);
+  await unwrap(client(fetchFn).api.public.access.logout.post());
 }

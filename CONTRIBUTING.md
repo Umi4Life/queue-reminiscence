@@ -36,14 +36,14 @@ See the root [README](README.md) for full Postgres-startup options.
 | `packages/domain` | Shared domain validation and policies                             |
 | `packages/ui`     | Shared CSS tokens and base styles                                 |
 
-The API owns authorization. The SvelteKit apps proxy `/api` to it (`127.0.0.1:3002`) and contain no auth logic of their own — keep it that way.
+The API owns authorization. The SvelteKit apps reach it through a type-safe Eden Treaty client (`apps/*/src/lib/api.ts`, typed by `@queue-reminiscence/api/types`) and contain no auth logic of their own — keep it that way.
 
 ## Running the stack
 
 Three terminals:
 
 ```bash
-bun run --cwd apps/api dev          # :3002  (Swagger UI at /api/docs)
+bun run --cwd apps/api dev          # :3002  (OpenAPI UI at /api/docs)
 bun run --cwd apps/public-web dev   # :3000
 bun run --cwd apps/admin-web dev    # :3001
 ```

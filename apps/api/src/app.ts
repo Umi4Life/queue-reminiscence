@@ -2,6 +2,7 @@ import type { AppConfig } from "@queue-reminiscence/config";
 import { parseEnv } from "@queue-reminiscence/config/env";
 import type { Database } from "@queue-reminiscence/db";
 import { createDb } from "@queue-reminiscence/db";
+import { openapi } from "@elysia/openapi";
 import { Elysia, ValidationError } from "elysia";
 
 import {
@@ -32,7 +33,7 @@ import { publicBoardsRoutes } from "./routes/public-boards";
 import { qrRoutes } from "./routes/qr";
 import { healthRoutes, isDatabaseReachable } from "./routes/health";
 import { displayRoutes } from "./routes/display";
-import { docsRoutes } from "./routes/docs";
+import { openApiDocumentation } from "./http/openapi-config";
 import type { DisplayDeviceResolver } from "./display/display-devices";
 import type { DisplayStateService } from "./display/display-state";
 
@@ -111,6 +112,7 @@ export function createApp(deps: AppDeps = {}) {
     name: "queue-reminiscence-api",
     serve: { maxRequestBodySize: 64 * 1024 },
   })
+    .use(openapi({ path: "/api/docs", documentation: openApiDocumentation }))
     .onRequest(({ request, set }) => {
       const { headers, preflight } = resolveCors(allowedOrigins, request);
       Object.assign(set.headers, headers, securityHeaders);
@@ -181,8 +183,7 @@ export function createApp(deps: AppDeps = {}) {
         displayStateService: deps.displayStateService,
       }),
     )
-    .use(qrRoutes({ config, db, rateLimiter }))
-    .use(docsRoutes());
+    .use(qrRoutes({ config, db, rateLimiter }));
 }
 
 export function createTestApp(deps: AppDeps = {}) {

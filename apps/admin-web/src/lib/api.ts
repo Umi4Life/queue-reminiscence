@@ -1,48 +1,31 @@
+import { treaty } from "@elysia/eden";
+import type {
+  App,
+  AdminSessionContext,
+  BoardSummary,
+  OrganizationSummary,
+  PublicBoardEventItem,
+  PublicBoardReadData,
+  RotatedBoardAccessCredential,
+  VenueSummary,
+} from "@queue-reminiscence/api/types";
+
 import { API_BASE_URL } from "./env";
 
 type FetchFn = typeof globalThis.fetch;
 
-interface ApiSuccess<T> {
-  ok: true;
-  data: T;
-}
+// Types are sourced from the API package (single source of truth across the
+// network boundary) rather than re-declared here. Note: date fields are typed
+// `Date` (from the server's `t.Date()` schemas) but arrive as ISO strings over
+// HTTP — consume them via `new Date(value)`, never by calling Date methods.
+export type { BoardSummary, OrganizationSummary, RotatedBoardAccessCredential, VenueSummary };
+export type MeData = AdminSessionContext;
+export type RotateResult = { board: BoardSummary; credential: RotatedBoardAccessCredential };
+export type PublicBoardData = PublicBoardReadData;
+export type PublicBoardEvent = PublicBoardEventItem;
+export type PublicQueueEntry = PublicBoardReadData["queue"][number];
 
-interface ApiError {
-  ok: false;
-  error: { code: string; message: string };
-}
-
-type ApiEnvelope<T> = ApiSuccess<T> | ApiError;
-
-export interface AdminIdentity {
-  id: string;
-  email: string;
-  displayName: string;
-}
-
-export interface AdminMembership {
-  id: string;
-  organizationId: string;
-  venueId: string | null;
-  role: string;
-}
-
-export interface MeData {
-  admin: AdminIdentity;
-  memberships: AdminMembership[];
-}
-
-export interface VenueSummary {
-  id: string;
-  organizationId: string;
-  slug: string;
-  name: string;
-  timezone: string;
-  address: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
+// Request inputs accepted by the create/patch endpoints (the editable subset).
 export interface CreateBoardInput {
   venueId: string;
   slug: string;
@@ -58,68 +41,30 @@ export interface PatchBoardInput {
   description?: string | null;
 }
 
-export interface BoardSummary {
-  id: string;
-  venueId: string;
-  organizationId: string;
-  slug: string;
-  publicSlug: string;
-  name: string;
-  description: string | null;
-  status: "open" | "closed";
-  publicViewPolicy: string;
-  publicAddPolicy: string;
-  publicRemovePolicy: string;
-  qrRotationPolicy: string;
-  qrRotationIntervalMinutes: number | null;
-  nextSortOrder: number;
-  displayVersion: number;
-  createdAt: string;
-  updatedAt: string;
+// Eden derives the `/api` prefix from the route paths, so the treaty domain is
+// the API origin without it. An absolute base (cross-origin in dev/e2e) is
+// stripped to its origin; a relative base falls back to the page origin.
+function apiOrigin(): string {
+  if (API_BASE_URL.startsWith("http")) return API_BASE_URL.replace(/\/api\/?$/, "");
+  return typeof window !== "undefined" ? window.location.origin : "";
 }
 
-export interface RotatedCredential {
-  id: string;
-  accessUrl: string;
-  tokenPreview: string;
-  version: number;
-  expiresAt: string | null;
-}
-
-export interface RotateResult {
-  board: BoardSummary;
-  credential: RotatedCredential;
-}
-
-async function apiFetch<T>(path: string, init: RequestInit, fetchFn: FetchFn): Promise<T> {
-  const response = await fetchFn(`${API_BASE_URL}${path}`, {
-    ...init,
-    credentials: "include",
+function client(fetchFn: FetchFn) {
+  return treaty<App>(apiOrigin(), {
+    fetch: { credentials: "include" },
+    fetcher: fetchFn,
   });
+}
 
-  const envelope = (await response.json()) as ApiEnvelope<T>;
+type TreatyResult = { data: unknown; error: { value: unknown } | null };
 
-  if (!envelope.ok) {
-    throw new Error(envelope.error.message);
+async function unwrap<T>(call: Promise<TreatyResult>): Promise<T> {
+  const { data, error } = await call;
+  if (error) {
+    const body = error.value as { error?: { message?: string } } | null;
+    throw new Error(body?.error?.message ?? "Request failed");
   }
-
-  return envelope.data;
-}
-
-function jsonPost(body: unknown): RequestInit {
-  return {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  };
-}
-
-function jsonPatch(body: unknown): RequestInit {
-  return {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  };
+  return (data as { data: T }).data;
 }
 
 export async function login(
@@ -127,34 +72,34 @@ export async function login(
   password: string,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<MeData> {
-  return apiFetch<MeData>("/admin/auth/login", jsonPost({ email, password }), fetchFn);
+  return unwrap<MeData>(client(fetchFn).api.admin.auth.login.post({ email, password }));
 }
 
 export async function logout(fetchFn: FetchFn = globalThis.fetch): Promise<void> {
-  await apiFetch<{ loggedOut: boolean }>("/admin/auth/logout", { method: "POST" }, fetchFn);
+  await unwrap(client(fetchFn).api.admin.auth.logout.post());
 }
 
 export async function getMe(fetchFn: FetchFn = globalThis.fetch): Promise<MeData> {
-  return apiFetch<MeData>("/admin/me", { method: "GET" }, fetchFn);
+  return unwrap<MeData>(client(fetchFn).api.admin.me.get());
 }
 
 export async function listBoards(
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ boards: BoardSummary[] }> {
-  return apiFetch<{ boards: BoardSummary[] }>("/admin/boards", { method: "GET" }, fetchFn);
+  return unwrap<{ boards: BoardSummary[] }>(client(fetchFn).api.admin.boards.get());
 }
 
 export async function listVenues(
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ venues: VenueSummary[] }> {
-  return apiFetch<{ venues: VenueSummary[] }>("/admin/venues", { method: "GET" }, fetchFn);
+  return unwrap<{ venues: VenueSummary[] }>(client(fetchFn).api.admin.venues.get());
 }
 
 export async function createBoard(
   body: CreateBoardInput,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ board: BoardSummary }> {
-  return apiFetch<{ board: BoardSummary }>("/admin/boards", jsonPost(body), fetchFn);
+  return unwrap<{ board: BoardSummary }>(client(fetchFn).api.admin.boards.post(body));
 }
 
 export async function updateBoard(
@@ -162,43 +107,29 @@ export async function updateBoard(
   body: PatchBoardInput,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ board: BoardSummary }> {
-  return apiFetch<{ board: BoardSummary }>(
-    `/admin/boards/${encodeURIComponent(boardId)}`,
-    jsonPatch(body),
-    fetchFn,
-  );
+  return unwrap<{ board: BoardSummary }>(client(fetchFn).api.admin.boards({ boardId }).patch(body));
 }
 
 export async function getBoard(
   boardId: string,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ board: BoardSummary }> {
-  return apiFetch<{ board: BoardSummary }>(
-    `/admin/boards/${encodeURIComponent(boardId)}`,
-    { method: "GET" },
-    fetchFn,
-  );
+  return unwrap<{ board: BoardSummary }>(client(fetchFn).api.admin.boards({ boardId }).get());
 }
 
 export async function openBoard(
   boardId: string,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ board: BoardSummary }> {
-  return apiFetch<{ board: BoardSummary }>(
-    `/admin/boards/${encodeURIComponent(boardId)}/open`,
-    { method: "POST" },
-    fetchFn,
-  );
+  return unwrap<{ board: BoardSummary }>(client(fetchFn).api.admin.boards({ boardId }).open.post());
 }
 
 export async function closeBoard(
   boardId: string,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ board: BoardSummary }> {
-  return apiFetch<{ board: BoardSummary }>(
-    `/admin/boards/${encodeURIComponent(boardId)}/close`,
-    { method: "POST" },
-    fetchFn,
+  return unwrap<{ board: BoardSummary }>(
+    client(fetchFn).api.admin.boards({ boardId }).close.post(),
   );
 }
 
@@ -206,10 +137,8 @@ export async function resetBoard(
   boardId: string,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ board: BoardSummary }> {
-  return apiFetch<{ board: BoardSummary }>(
-    `/admin/boards/${encodeURIComponent(boardId)}/reset`,
-    { method: "POST" },
-    fetchFn,
+  return unwrap<{ board: BoardSummary }>(
+    client(fetchFn).api.admin.boards({ boardId }).reset.post(),
   );
 }
 
@@ -217,52 +146,16 @@ export async function deleteBoard(
   boardId: string,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<void> {
-  await apiFetch<{ deleted: true }>(
-    `/admin/boards/${encodeURIComponent(boardId)}`,
-    { method: "DELETE" },
-    fetchFn,
-  );
+  await unwrap(client(fetchFn).api.admin.boards({ boardId }).delete());
 }
 
 export async function rotateAccessCredential(
   boardId: string,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<RotateResult> {
-  return apiFetch<RotateResult>(
-    `/admin/boards/${encodeURIComponent(boardId)}/access-credentials/rotate`,
-    { method: "POST" },
-    fetchFn,
+  return unwrap<RotateResult>(
+    client(fetchFn).api.admin.boards({ boardId })["access-credentials"].rotate.post(),
   );
-}
-
-export interface PublicQueueEntry {
-  id: string;
-  displayName: string;
-  position: number;
-  sortOrder: number;
-  createdAt: string;
-}
-
-export interface PublicBoardData {
-  organization: { id: string; slug: string; name: string };
-  venue: { id: string; slug: string; name: string };
-  board: {
-    publicSlug: string;
-    name: string;
-    description: string | null;
-    status: "open" | "closed";
-    displayVersion: number;
-    updatedAt: string;
-  };
-  queue: PublicQueueEntry[];
-}
-
-export interface PublicBoardEvent {
-  id: string;
-  type: string;
-  publicMessage: string;
-  displayNameSnapshot: string | null;
-  createdAt: string;
 }
 
 export async function getPublicBoard(
@@ -270,10 +163,8 @@ export async function getPublicBoard(
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ board: PublicBoardData } | null> {
   try {
-    return await apiFetch<{ board: PublicBoardData }>(
-      `/public/boards/${encodeURIComponent(publicSlug)}`,
-      { method: "GET" },
-      fetchFn,
+    return await unwrap<{ board: PublicBoardData }>(
+      client(fetchFn).api.public.boards({ publicSlug }).get(),
     );
   } catch {
     return null;
@@ -285,10 +176,9 @@ export async function getPublicBoardEvents(
   limit?: number,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ events: PublicBoardEvent[] }> {
-  const query = limit !== undefined ? `?limit=${limit}` : "";
-  return apiFetch<{ events: PublicBoardEvent[] }>(
-    `/public/boards/${encodeURIComponent(publicSlug)}/events${query}`,
-    { method: "GET" },
-    fetchFn,
+  return unwrap<{ events: PublicBoardEvent[] }>(
+    client(fetchFn)
+      .api.public.boards({ publicSlug })
+      .events.get(limit !== undefined ? { query: { limit } } : {}),
   );
 }

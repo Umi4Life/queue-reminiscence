@@ -8,6 +8,9 @@ import {
 } from "../auth/public-sessions";
 import { validationError } from "../http/errors";
 import { apiSuccess } from "../http/response";
+import { apiModels } from "../http/models";
+import { API_TAGS } from "../http/openapi-config";
+import { ClaimAccessResult, success } from "../http/schemas";
 import { hashClientIp } from "../public/audit-metadata";
 import type { RateLimiter } from "../rate-limit/rate-limiter";
 
@@ -117,6 +120,7 @@ function responseForClaim(result: ClaimPublicAccessResult) {
 
 export function publicAccessRoutes(deps: PublicAccessRouteDeps) {
   return new Elysia({ name: "public-access-routes" })
+    .use(apiModels)
     .post(
       "/api/public/access/claim",
       async ({ body, request, set }) => {
@@ -136,19 +140,35 @@ export function publicAccessRoutes(deps: PublicAccessRouteDeps) {
         return apiSuccess(responseForClaim(result));
       },
       {
-        body: t.Object({
-          accessCode: t.String({ minLength: 1 }),
-        }),
+        body: "ClaimAccessBody",
+        response: { 200: success(ClaimAccessResult) },
+        detail: {
+          summary: "Claim public access",
+          description:
+            "Exchanges an access code for a `qr_public_session` cookie granting mutation access. Rate limited per IP. A non-claimed outcome still returns 200 with `claimed: false` and a reason.",
+          tags: [API_TAGS.publicAccess],
+        },
       },
     )
-    .post("/api/public/access/logout", async ({ request, set }) => {
-      const token = readPublicBoardSessionToken(request.headers);
+    .post(
+      "/api/public/access/logout",
+      async ({ request, set }) => {
+        const token = readPublicBoardSessionToken(request.headers);
 
-      if (token) {
-        await deps.publicSessionService.logout(token);
-      }
+        if (token) {
+          await deps.publicSessionService.logout(token);
+        }
 
-      set.headers["set-cookie"] = serializeExpiredPublicSessionCookie(deps.config);
-      return apiSuccess({ loggedOut: true });
-    });
+        set.headers["set-cookie"] = serializeExpiredPublicSessionCookie(deps.config);
+        return apiSuccess({ loggedOut: true });
+      },
+      {
+        response: { 200: success(t.Object({ loggedOut: t.Literal(true) })) },
+        detail: {
+          summary: "Revoke public access",
+          description: "Revokes the current public mutation session and clears the cookie.",
+          tags: [API_TAGS.publicAccess],
+        },
+      },
+    );
 }

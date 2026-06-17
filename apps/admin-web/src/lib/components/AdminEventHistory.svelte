@@ -3,7 +3,9 @@
 
   let { events }: { events: PublicBoardEvent[] } = $props();
 
-  function formatTime(iso: string): string {
+  // `createdAt` is typed `Date` by the server schema but arrives as an ISO
+  // string over HTTP; `new Date()` accepts either.
+  function formatTime(iso: string | Date): string {
     try {
       return new Date(iso).toLocaleString(undefined, {
         month: "short",
@@ -12,7 +14,7 @@
         minute: "2-digit",
       });
     } catch {
-      return iso;
+      return String(iso);
     }
   }
 </script>

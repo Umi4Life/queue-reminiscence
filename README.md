@@ -4,7 +4,7 @@
 
 <p>
   <img alt="Runtime: Bun" src="https://img.shields.io/badge/Runtime-Bun%201.2-black?logo=bun&logoColor=white">
-  <img alt="API: Elysia.js" src="https://img.shields.io/badge/API-Elysia.js%201.3-7B3FE4?logo=elysia&logoColor=white">
+  <img alt="API: Elysia.js" src="https://img.shields.io/badge/API-Elysia.js%201.4-7B3FE4?logo=elysia&logoColor=white">
   <img alt="Frontend: Svelte" src="https://img.shields.io/badge/Frontend-Svelte%205%20%2F%20SvelteKit%202-FF3E00?logo=svelte&logoColor=white">
   <img alt="Database: PostgreSQL" src="https://img.shields.io/badge/Database-PostgreSQL%2016-4169E1?logo=postgresql&logoColor=white">
 </p>
@@ -23,15 +23,15 @@ Queue Reminiscence replaces the paper queue sheet at an arcade cabinet (or any c
 
 ## Tech stack
 
-| Layer            | Technology                      | Where             | Port   |
-| ---------------- | ------------------------------- | ----------------- | ------ |
-| Runtime / PM     | **Bun** 1.2.23 (workspaces)     | repo root         | —      |
-| API              | **Elysia.js** 1.3.8 on Bun      | `apps/api`        | `3002` |
-| Public web       | **SvelteKit 2 / Svelte 5**      | `apps/public-web` | `3000` |
-| Admin web        | **SvelteKit 2 / Svelte 5**      | `apps/admin-web`  | `3001` |
-| Database         | **PostgreSQL 16** + Drizzle ORM | `packages/db`     | `5432` |
-| API docs         | OpenAPI / Swagger UI            | `apps/api`        | `3002` |
-| End-to-end tests | Playwright (isolated Postgres)  | `tests/e2e`       | `5433` |
+| Layer            | Technology                               | Where             | Port   |
+| ---------------- | ---------------------------------------- | ----------------- | ------ |
+| Runtime / PM     | **Bun** 1.2.23 (workspaces)              | repo root         | —      |
+| API              | **Elysia.js** 1.4 on Bun                 | `apps/api`        | `3002` |
+| Public web       | **SvelteKit 2 / Svelte 5**               | `apps/public-web` | `3000` |
+| Admin web        | **SvelteKit 2 / Svelte 5**               | `apps/admin-web`  | `3001` |
+| Database         | **PostgreSQL 16** + Drizzle ORM          | `packages/db`     | `5432` |
+| API docs         | OpenAPI (generated) + Eden Treaty client | `apps/api`        | `3002` |
+| End-to-end tests | Playwright (isolated Postgres)           | `tests/e2e`       | `5433` |
 
 ## Architecture at a glance
 
@@ -50,7 +50,7 @@ docs/
   journal/      # preserved MVP build history (architecture, plans, product)
 ```
 
-The API is the single source of truth: the SvelteKit apps proxy `/api` to it and hold no authorization logic of their own.
+The API is the single source of truth: the SvelteKit apps call it through a type-safe [Eden Treaty](https://elysiajs.com/eden/treaty/overview.html) client (the server's `App` type is imported from `@queue-reminiscence/api/types`) and hold no authorization logic of their own.
 
 ## Quick start (local, bare Bun)
 
@@ -104,7 +104,16 @@ Then open <http://localhost:3001>. See [`docs/deployment/local-development.md`](
 
 ## API docs
 
-The Elysia API serves interactive **Swagger UI at <http://localhost:3002/api/docs>** (raw spec at `/api/openapi.yaml`) once the API is running.
+The Elysia API serves an interactive **OpenAPI UI at <http://localhost:3002/api/docs>** (raw spec at `/api/docs/json`) once the API is running. The document is generated directly from the route schemas by `@elysia/openapi` — there is no hand-maintained spec file to keep in sync.
+
+### Elysia conventions
+
+The API follows Elysia's recommended patterns:
+
+- **Controllers as plugins** — each route group is a named `Elysia` instance (one instance = one controller); handlers chain for end-to-end type inference.
+- **Schemas as the single source of truth** — every request/response shape is a TypeBox (`t`) schema in `apps/api/src/http/schemas.ts`; reusable inputs and the error envelope are registered via `.model()` so the OpenAPI document emits shared `#/components/schemas` entries.
+- **Type-safe clients** — the web apps use **Eden Treaty** (`@elysia/eden`) against the exported `App` type, so client and server never drift.
+- **Auth by design, not plugin** — sessions are opaque, server-side, HMAC'd cookies (intentionally not `@elysiajs/jwt`/`bearer`, so credentials are revocable), and CORS + CSRF live in one dedicated request hook (`apps/api/src/http/`) rather than a generic CORS plugin, keeping the origin allowlist and cross-origin mutation checks together.
 
 ## Configuration
 
