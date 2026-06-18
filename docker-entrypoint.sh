@@ -3,7 +3,11 @@ set -e
 
 case "$APP" in
   api)
-    exec sh -c 'bun run --cwd packages/db db:migrate && exec bun run apps/api/src/index.ts'
+    bun run --cwd packages/db db:migrate
+    if [ -n "$SEED_ADMIN_EMAIL" ] && [ -n "$SEED_ADMIN_PASSWORD" ]; then
+      bun run --cwd packages/db db:seed
+    fi
+    exec bun run apps/api/src/index.ts
     ;;
   admin-web)
     export PORT="${PORT:-3001}"
