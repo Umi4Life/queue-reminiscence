@@ -256,6 +256,41 @@ describe("public access routes", () => {
     expect(cookie.includes("HttpOnly")).toBe(true);
   });
 
+  test("malformed unrelated cookie does not crash session read", async () => {
+    const publicSessionService = createFakePublicSessionService();
+    const app = createApp(publicSessionService);
+
+    // A foreign cookie with invalid percent-encoding (e.g. an analytics or
+    // SSO cookie scoped to the parent domain) must not 500 the request.
+    const response = await app.handle(
+      new Request("http://localhost/api/public/access/logout", {
+        method: "POST",
+        headers: {
+          cookie: `bad_cookie=abc%ZZ; ${PUBLIC_BOARD_SESSION_COOKIE_NAME}=public-session-token`,
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    // The valid session cookie is still read correctly despite the bad neighbor.
+    expect(publicSessionService.logoutCalls).toEqual(["public-session-token"]);
+  });
+
+  test("malformed session cookie itself does not crash, treated as raw token", async () => {
+    const publicSessionService = createFakePublicSessionService();
+    const app = createApp(publicSessionService);
+
+    const response = await app.handle(
+      new Request("http://localhost/api/public/access/logout", {
+        method: "POST",
+        headers: { cookie: `${PUBLIC_BOARD_SESSION_COOKIE_NAME}=abc%ZZ` },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(publicSessionService.logoutCalls).toEqual(["abc%ZZ"]);
+  });
+
   test("logout without session cookie still clears cookie", async () => {
     const publicSessionService = createFakePublicSessionService();
     const app = createApp(publicSessionService);

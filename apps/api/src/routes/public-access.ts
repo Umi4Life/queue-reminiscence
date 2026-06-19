@@ -6,6 +6,7 @@ import {
   type ClaimPublicAccessResult,
   type PublicSessionService,
 } from "../auth/public-sessions";
+import { readCookie } from "../http/cookies";
 import { validationError } from "../http/errors";
 import { apiSuccess } from "../http/response";
 import { apiModels } from "../http/models";
@@ -36,34 +37,8 @@ async function enforceClaimRateLimit(
   await rateLimiter.checkAndIncrement({ ...CLAIM_IP_BURST, bucketKey: ipKey });
 }
 
-function parseCookieHeader(header: string | null): Map<string, string> {
-  const cookies = new Map<string, string>();
-
-  if (!header) {
-    return cookies;
-  }
-
-  for (const part of header.split(";")) {
-    const trimmed = part.trim();
-    const separatorIndex = trimmed.indexOf("=");
-
-    if (separatorIndex === -1) {
-      continue;
-    }
-
-    const name = trimmed.slice(0, separatorIndex).trim();
-    const value = trimmed.slice(separatorIndex + 1).trim();
-
-    if (name.length > 0) {
-      cookies.set(name, decodeURIComponent(value));
-    }
-  }
-
-  return cookies;
-}
-
 export function readPublicBoardSessionToken(headers: Headers): string | undefined {
-  return parseCookieHeader(headers.get("cookie")).get(PUBLIC_BOARD_SESSION_COOKIE_NAME);
+  return readCookie(headers, PUBLIC_BOARD_SESSION_COOKIE_NAME);
 }
 
 function serializePublicSessionCookie(
