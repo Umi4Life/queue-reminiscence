@@ -142,14 +142,6 @@ export async function getMe(fetchFn: FetchFn = globalThis.fetch): Promise<MeData
   return unwrap<MeData>(client(fetchFn).api.admin.me.get());
 }
 
-export async function listOrganizations(
-  fetchFn: FetchFn = globalThis.fetch,
-): Promise<{ organizations: OrganizationSummary[] }> {
-  return unwrap<{ organizations: OrganizationSummary[] }>(
-    client(fetchFn).api.admin.organizations.get(),
-  );
-}
-
 export async function listBoards(
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ boards: BoardSummary[] }> {
