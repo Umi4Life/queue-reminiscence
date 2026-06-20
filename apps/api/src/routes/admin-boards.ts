@@ -6,6 +6,7 @@ import type { BoardManagementService } from "../admin/board-management";
 import type { BoardAccessService } from "../access/board-access";
 import type { AdminAuthService } from "../auth/admin-sessions";
 import { requireAdminSession } from "../auth/admin-route-auth";
+import { toAdminRbacContext, type AdminRbacContext } from "../auth/rbac";
 import { forbiddenError, notFoundError, validationError } from "../http/errors";
 import { apiSuccess } from "../http/response";
 import { apiModels } from "../http/models";
@@ -43,7 +44,7 @@ function requireValidSlug(value: string, label: string): string {
 
 type BoardOperationHandler = (
   service: BoardManagementService,
-  rbac: { memberships: Awaited<ReturnType<AdminAuthService["resolve"]>>["memberships"] },
+  rbac: AdminRbacContext,
   adminUserId: string,
   boardId: string,
 ) => ReturnType<BoardManagementService["openBoard"]>;
@@ -55,7 +56,7 @@ async function runBoardOperationRoute(
   operation: BoardOperationHandler,
 ) {
   const session = await requireAdminSession(deps.authService, request.headers);
-  const rbac = { memberships: session.memberships };
+  const rbac = toAdminRbacContext(session);
   const result = await operation(deps.boardManagementService, rbac, session.admin.id, boardId);
 
   if (!result) {
@@ -72,9 +73,7 @@ export function adminBoardsRoutes(deps: AdminBoardsRouteDeps) {
       "/api/admin/boards",
       async ({ request }) => {
         const session = await requireAdminSession(deps.authService, request.headers);
-        const boards = await deps.boardManagementService.listBoards({
-          memberships: session.memberships,
-        });
+        const boards = await deps.boardManagementService.listBoards(toAdminRbacContext(session));
 
         return apiSuccess({ boards });
       },
@@ -114,7 +113,7 @@ export function adminBoardsRoutes(deps: AdminBoardsRouteDeps) {
         };
 
         const result = await deps.boardManagementService.createBoard(
-          { memberships: session.memberships },
+          toAdminRbacContext(session),
           input,
         );
 
@@ -148,7 +147,7 @@ export function adminBoardsRoutes(deps: AdminBoardsRouteDeps) {
       async ({ request, params }) => {
         const session = await requireAdminSession(deps.authService, request.headers);
         const board = await deps.boardManagementService.getBoard(
-          { memberships: session.memberships },
+          toAdminRbacContext(session),
           params.boardId,
         );
 
@@ -215,7 +214,7 @@ export function adminBoardsRoutes(deps: AdminBoardsRouteDeps) {
         }
 
         const result = await deps.boardManagementService.updateBoard(
-          { memberships: session.memberships },
+          toAdminRbacContext(session),
           params.boardId,
           patch,
         );
@@ -251,7 +250,7 @@ export function adminBoardsRoutes(deps: AdminBoardsRouteDeps) {
       async ({ request, params }) => {
         const session = await requireAdminSession(deps.authService, request.headers);
         const result = await deps.boardManagementService.deleteBoard(
-          { memberships: session.memberships },
+          toAdminRbacContext(session),
           params.boardId,
         );
 
@@ -346,7 +345,7 @@ export function adminBoardsRoutes(deps: AdminBoardsRouteDeps) {
       async ({ request, params }) => {
         const session = await requireAdminSession(deps.authService, request.headers);
         const result = await deps.boardAccessService.rotateBoardAccessCredential(
-          { memberships: session.memberships },
+          toAdminRbacContext(session),
           session.admin.id,
           params.boardId,
         );

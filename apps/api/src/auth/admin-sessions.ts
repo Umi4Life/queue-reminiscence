@@ -30,6 +30,7 @@ export interface AdminIdentity {
   id: string;
   email: string;
   displayName: string;
+  isSuperAdmin: boolean;
 }
 
 export interface AdminMembershipSummary {
@@ -68,6 +69,7 @@ function toAdminIdentity(admin: AdminUser): AdminIdentity {
     id: admin.id,
     email: admin.email,
     displayName: admin.displayName,
+    isSuperAdmin: admin.isSuperAdmin,
   };
 }
 

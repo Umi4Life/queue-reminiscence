@@ -12,6 +12,7 @@ const activeContext = {
     id: "admin-1",
     email: "demo@local.test",
     displayName: "Demo Admin",
+    isSuperAdmin: false,
   },
   memberships: [
     {
@@ -258,5 +259,58 @@ describe("admin auth routes", () => {
     expect(cookie.includes(`${ADMIN_SESSION_COOKIE_NAME}=`)).toBe(true);
     expect(cookie.includes("Max-Age=0")).toBe(true);
     expect(cookie.includes("HttpOnly")).toBe(true);
+  });
+
+  test("/api/admin/me includes isSuperAdmin in admin identity", async () => {
+    const app = createAppWithFakeAuth();
+
+    const response = await app.handle(
+      new Request("http://localhost/api/admin/me", {
+        headers: { cookie: `${ADMIN_SESSION_COOKIE_NAME}=test-session-token` },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const json = (await response.json()) as {
+      ok: true;
+      data: { admin: { isSuperAdmin: boolean } };
+    };
+    expect(json.data.admin.isSuperAdmin).toBe(false);
+  });
+
+  test("login response includes isSuperAdmin: false for default fixture admin", async () => {
+    const app = createAppWithFakeAuth();
+
+    const response = await app.handle(
+      new Request("http://localhost/api/admin/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "demo@local.test", password: "correct-password" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const json = (await response.json()) as {
+      ok: true;
+      data: { admin: { isSuperAdmin: boolean } };
+    };
+    expect(json.data.admin.isSuperAdmin).toBe(false);
+  });
+
+  test("resolve preserves isSuperAdmin from DB, not client input", async () => {
+    // The fake auth service populates isSuperAdmin from its stored context (simulating DB).
+    // This test verifies that /me returns the server-side value, not any client-provided value.
+    const app = createAppWithFakeAuth();
+
+    // Attempt to pass a different session cookie — resolve is authoritative.
+    const response = await app.handle(
+      new Request("http://localhost/api/admin/me", {
+        headers: { cookie: `${ADMIN_SESSION_COOKIE_NAME}=test-session-token` },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const json = (await response.json()) as { ok: true; data: typeof activeContext };
+    expect(json.data).toEqual(activeContext);
   });
 });

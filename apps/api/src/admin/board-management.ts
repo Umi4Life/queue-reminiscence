@@ -187,6 +187,11 @@ export function toBoardSummaryFromRow(board: Board, organizationId: string): Boa
 export function createDbBoardManagementService(db: Database): BoardManagementService {
   return {
     async listOrganizations(rbac: AdminRbacContext): Promise<OrganizationSummary[]> {
+      if (rbac.isSuperAdmin) {
+        const rows = await db.select().from(organizations);
+        return rows.map(toOrganizationSummary);
+      }
+
       const organizationIds = getAccessibleOrganizationIds(rbac.memberships);
 
       if (organizationIds.length === 0) {
@@ -202,6 +207,11 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
     },
 
     async listVenues(rbac: AdminRbacContext): Promise<VenueSummary[]> {
+      if (rbac.isSuperAdmin) {
+        const rows = await db.select().from(venues);
+        return rows.map(toVenueSummary);
+      }
+
       const ownedOrganizationIds = getOrgOwnedOrganizationIds(rbac.memberships);
       const assignedVenueIds = getAssignedVenueIds(rbac.memberships);
 
@@ -228,6 +238,14 @@ export function createDbBoardManagementService(db: Database): BoardManagementSer
     },
 
     async listBoards(rbac: AdminRbacContext): Promise<BoardSummary[]> {
+      if (rbac.isSuperAdmin) {
+        const rows = await db
+          .select({ board: boards, venue: venues })
+          .from(boards)
+          .innerJoin(venues, eq(boards.venueId, venues.id));
+        return rows.map((row) => toBoardSummaryFromRow(row.board, row.venue.organizationId));
+      }
+
       const ownedOrganizationIds = getOrgOwnedOrganizationIds(rbac.memberships);
       const assignedVenueIds = getAssignedVenueIds(rbac.memberships);
 

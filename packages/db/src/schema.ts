@@ -203,6 +203,7 @@ export const adminUsers = pgTable(
     displayName: varchar("display_name", { length: 255 }).notNull(),
     passwordHash: text("password_hash").notNull(),
     status: adminUserStatusEnum("status").notNull(),
+    isSuperAdmin: boolean("is_super_admin").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
       .notNull()
