@@ -25,6 +25,16 @@ export type PublicBoardData = PublicBoardReadData;
 export type PublicBoardEvent = PublicBoardEventItem;
 export type PublicQueueEntry = PublicBoardReadData["queue"][number];
 
+export interface CreateOrganizationInput {
+  slug: string;
+  name: string;
+}
+
+export interface PatchOrganizationInput {
+  slug?: string;
+  name?: string;
+}
+
 // Request inputs accepted by the create/patch endpoints (the editable subset).
 export interface CreateBoardInput {
   venueId: string;
@@ -65,6 +75,40 @@ async function unwrap<T>(call: Promise<TreatyResult>): Promise<T> {
     throw new Error(body?.error?.message ?? "Request failed");
   }
   return (data as { data: T }).data;
+}
+
+export async function listOrganizations(
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<{ organizations: OrganizationSummary[] }> {
+  return unwrap<{ organizations: OrganizationSummary[] }>(
+    client(fetchFn).api.admin.organizations.get(),
+  );
+}
+
+export async function createOrganization(
+  body: CreateOrganizationInput,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<{ organization: OrganizationSummary }> {
+  return unwrap<{ organization: OrganizationSummary }>(
+    client(fetchFn).api.admin.organizations.post(body),
+  );
+}
+
+export async function updateOrganization(
+  orgId: string,
+  body: PatchOrganizationInput,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<{ organization: OrganizationSummary }> {
+  return unwrap<{ organization: OrganizationSummary }>(
+    client(fetchFn).api.admin.organizations({ orgId }).patch(body),
+  );
+}
+
+export async function deleteOrganization(
+  orgId: string,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<void> {
+  await unwrap(client(fetchFn).api.admin.organizations({ orgId }).delete());
 }
 
 export async function login(

@@ -51,6 +51,14 @@
   </header>
 
   <main class="content">
+    {#if data.session?.admin.isSuperAdmin}
+      <div class="section-header">
+        <h2 class="section-title">Organizations</h2>
+        <a href="/organizations" class="new-board-btn">Manage</a>
+      </div>
+      <div style="margin-bottom: 1.5rem;"></div>
+    {/if}
+
     <div class="section-header">
       <h2 class="section-title">Boards</h2>
       <a href="/boards/new" class="new-board-btn">New board</a>

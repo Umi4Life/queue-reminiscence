@@ -9,6 +9,7 @@ import {
   createDbBoardManagementService,
   type BoardManagementService,
 } from "./admin/board-management";
+import { createDbOrgManagementService, type OrgManagementService } from "./admin/org-management";
 import { createDbBoardAccessService, type BoardAccessService } from "./access/board-access";
 import { createDbAdminAuthService, type AdminAuthService } from "./auth/admin-sessions";
 import { createDbPublicSessionService, type PublicSessionService } from "./auth/public-sessions";
@@ -43,6 +44,7 @@ export interface AppDeps {
   checkDatabase?: () => Promise<boolean>;
   adminAuthService?: AdminAuthService;
   boardManagementService?: BoardManagementService;
+  orgManagementService?: OrgManagementService;
   boardAccessService?: BoardAccessService;
   publicSessionService?: PublicSessionService;
   publicBoardReadService?: PublicBoardReadService;
@@ -72,6 +74,7 @@ export function createApp(deps: AppDeps = {}) {
     });
   const adminAuthService = deps.adminAuthService ?? createDbAdminAuthService(db, config);
   const boardManagementService = deps.boardManagementService ?? createDbBoardManagementService(db);
+  const orgManagementService = deps.orgManagementService ?? createDbOrgManagementService(db);
   const boardAccessService = deps.boardAccessService ?? createDbBoardAccessService(db, config);
   const publicSessionService =
     deps.publicSessionService ?? createDbPublicSessionService(db, config);
@@ -85,6 +88,7 @@ export function createApp(deps: AppDeps = {}) {
   const adminRouteDeps = {
     authService: adminAuthService,
     boardManagementService,
+    orgManagementService,
     boardAccessService,
   };
 

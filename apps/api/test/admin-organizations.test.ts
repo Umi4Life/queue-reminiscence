@@ -4,6 +4,7 @@ import { createTestApp } from "../src/app";
 import {
   createFakeAuthService,
   createFakeBoardManagementService,
+  createFakeOrgManagementService,
   orgOwnerMembership,
   ORG_A,
   ORG_B,
@@ -18,6 +19,7 @@ function createApp(memberships = [orgOwnerMembership]) {
     config: testAppConfig,
     adminAuthService: createFakeAuthService(memberships),
     boardManagementService: createFakeBoardManagementService(),
+    orgManagementService: createFakeOrgManagementService(),
     checkDatabase: async () => true,
   });
 }

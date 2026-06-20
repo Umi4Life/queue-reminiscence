@@ -3,6 +3,7 @@ export type ApiErrorCode =
   | "unauthorized"
   | "forbidden"
   | "not_found"
+  | "conflict"
   | "rate_limited";
 
 export interface ApiErrorBody {
@@ -45,6 +46,10 @@ export function forbiddenError(
 
 export function notFoundError(message = "Resource not found."): ApiError {
   return new ApiError("not_found", message, 404);
+}
+
+export function conflictError(message = "Resource already exists."): ApiError {
+  return new ApiError("conflict", message, 409);
 }
 
 export function rateLimitedError(message = "Too many requests. Try again shortly."): ApiError {

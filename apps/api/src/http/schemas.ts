@@ -61,6 +61,7 @@ export const ErrorCode = t.Union([
   t.Literal("unauthorized"),
   t.Literal("forbidden"),
   t.Literal("not_found"),
+  t.Literal("conflict"),
   t.Literal("rate_limited"),
   t.Literal("internal_error"),
 ]);
@@ -109,6 +110,16 @@ export const AddEntryBody = t.Object({
   }),
 });
 
+export const CreateOrganizationBody = t.Object({
+  slug: t.String({ minLength: 1, description: "Globally unique organization slug." }),
+  name: t.String({ minLength: 1, description: "Organization display name." }),
+});
+
+export const PatchOrganizationBody = t.Object({
+  slug: t.Optional(t.String({ minLength: 1 })),
+  name: t.Optional(t.String({ minLength: 1 })),
+});
+
 export const CreateBoardBody = t.Object({
   venueId: t.String({ pattern: UuidPattern, description: "Venue that owns the board." }),
   slug: t.String({ minLength: 1, description: "Unique within the venue." }),
@@ -139,6 +150,10 @@ export const PatchBoardBody = t.Object({
 // ---------------------------------------------------------------------------
 // Path params & query strings
 // ---------------------------------------------------------------------------
+export const OrgIdParams = t.Object({
+  orgId: t.String({ description: "Organization identifier (UUID)." }),
+});
+
 export const BoardIdParams = t.Object({
   boardId: t.String({ description: "Board identifier (UUID)." }),
 });
