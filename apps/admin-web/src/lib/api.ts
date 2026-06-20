@@ -181,9 +181,7 @@ export async function updateVenue(
   body: PatchVenueInput,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<{ venue: VenueSummary }> {
-  return unwrap<{ venue: VenueSummary }>(
-    client(fetchFn).api.admin.venues({ venueId }).patch(body),
-  );
+  return unwrap<{ venue: VenueSummary }>(client(fetchFn).api.admin.venues({ venueId }).patch(body));
 }
 
 export async function deleteVenue(

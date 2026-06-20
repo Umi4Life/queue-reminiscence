@@ -15,10 +15,7 @@ import {
 } from "./admin-fixtures";
 import { testAppConfig } from "./test-config";
 
-function createApp(
-  memberships = [orgOwnerMembership],
-  options: { isSuperAdmin?: boolean } = {},
-) {
+function createApp(memberships = [orgOwnerMembership], options: { isSuperAdmin?: boolean } = {}) {
   return createTestApp({
     config: testAppConfig,
     adminAuthService: createFakeAuthService(memberships, options),

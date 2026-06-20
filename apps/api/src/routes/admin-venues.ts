@@ -1,7 +1,11 @@
 import { validateSlug, validateTimezone } from "@queue-reminiscence/domain";
 import { Elysia, t } from "elysia";
 
-import type { CreateVenueInput, PatchVenueInput, VenueManagementService } from "../admin/venue-management";
+import type {
+  CreateVenueInput,
+  PatchVenueInput,
+  VenueManagementService,
+} from "../admin/venue-management";
 import type { AdminAuthService } from "../auth/admin-sessions";
 import { requireAdminSession } from "../auth/admin-route-auth";
 import { toAdminRbacContext } from "../auth/rbac";

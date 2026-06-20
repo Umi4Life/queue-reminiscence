@@ -70,9 +70,7 @@ function getOrgOwnedOrganizationIds(memberships: readonly AdminMembershipContext
 
 function getAssignedVenueIds(memberships: readonly AdminMembershipContext[]): string[] {
   return [
-    ...new Set(
-      memberships.filter((m) => m.venueId !== null).map((m) => m.venueId as string),
-    ),
+    ...new Set(memberships.filter((m) => m.venueId !== null).map((m) => m.venueId as string)),
   ];
 }
 
@@ -155,9 +153,7 @@ export function createDbVenueManagementService(db: Database): VenueManagementSer
       const [existingSlug] = await db
         .select({ id: venues.id })
         .from(venues)
-        .where(
-          and(eq(venues.organizationId, input.organizationId), eq(venues.slug, input.slug)),
-        )
+        .where(and(eq(venues.organizationId, input.organizationId), eq(venues.slug, input.slug)))
         .limit(1);
 
       if (existingSlug) {
