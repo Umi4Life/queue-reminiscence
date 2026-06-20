@@ -359,4 +359,26 @@ describe("admin venues routes", () => {
 
     expect(response.status).toBe(403);
   });
+
+  test("delete returns 400 when venue has existing boards", async () => {
+    const venueService = createFakeVenueManagementService(undefined, new Set([VENUE_A1]));
+    const app = createTestApp({
+      config: testAppConfig,
+      adminAuthService: createFakeAuthService([orgOwnerMembership]),
+      boardManagementService: createFakeBoardManagementService(),
+      venueManagementService: venueService,
+      checkDatabase: async () => true,
+    });
+
+    const response = await app.handle(
+      new Request(`http://localhost/api/admin/venues/${VENUE_A1}`, {
+        method: "DELETE",
+        headers: { cookie: sessionCookie },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    const json = (await response.json()) as { ok: false; error: { code: string } };
+    expect(json.error.code).toBe("validation_error");
+  });
 });
