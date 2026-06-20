@@ -12,7 +12,14 @@ import type { CreateBoardInput, PatchBoardInput } from "../src/admin/board-input
 import { patchChangesDisplayVersion } from "../src/admin/board-input";
 import type { AdminAuthService, AdminSessionContext } from "../src/auth/admin-sessions";
 import { unauthorizedError } from "../src/http/errors";
-import { assertCanOperateBoard, type AdminMembershipContext } from "../src/auth/rbac";
+import {
+  assertCanOperateBoard,
+  canManageVenue,
+  canOperateBoard,
+  canReadVenue,
+  type AdminMembershipContext,
+  type AdminRbacContext,
+} from "../src/auth/rbac";
 
 export const ORG_A = "00000000-0000-4000-8000-000000000001";
 export const ORG_B = "00000000-0000-4000-8000-000000000002";
@@ -129,12 +136,14 @@ export const venueStaffMembership: AdminMembershipContext = {
 
 export function createFakeAuthService(
   memberships: AdminMembershipContext[] = [orgOwnerMembership],
+  options: { isSuperAdmin?: boolean } = {},
 ): AdminAuthService {
   const context: AdminSessionContext = {
     admin: {
       id: "admin-1",
       email: "demo@local.test",
       displayName: "Demo Admin",
+      isSuperAdmin: options.isSuperAdmin ?? false,
     },
     memberships: memberships.map((membership, index) => ({
       id: `membership-${index + 1}`,
@@ -163,66 +172,12 @@ export function createFakeAuthService(
   };
 }
 
-function hasOrgOwnerAccess(
-  memberships: readonly AdminMembershipContext[],
-  organizationId: string,
-): boolean {
-  return memberships.some(
-    (membership) =>
-      membership.organizationId === organizationId &&
-      membership.venueId === null &&
-      membership.role === "org_owner",
-  );
-}
-
 function getAssignedVenueIds(memberships: readonly AdminMembershipContext[]): Set<string> {
   return new Set(
     memberships
       .filter((membership) => membership.venueId !== null)
       .map((membership) => membership.venueId as string),
   );
-}
-
-function canManageVenueForMemberships(
-  memberships: readonly AdminMembershipContext[],
-  organizationId: string,
-  venueId: string,
-): boolean {
-  if (hasOrgOwnerAccess(memberships, organizationId)) {
-    return true;
-  }
-
-  return memberships.some(
-    (membership) =>
-      membership.organizationId === organizationId &&
-      membership.venueId === venueId &&
-      membership.role === "venue_manager",
-  );
-}
-
-function canReadVenueForMemberships(
-  memberships: readonly AdminMembershipContext[],
-  organizationId: string,
-  venueId: string,
-): boolean {
-  if (hasOrgOwnerAccess(memberships, organizationId)) {
-    return true;
-  }
-
-  return memberships.some(
-    (membership) => membership.organizationId === organizationId && membership.venueId === venueId,
-  );
-}
-
-function canOperateBoardForMemberships(
-  memberships: readonly AdminMembershipContext[],
-  board: BoardSummary,
-): boolean {
-  if (hasOrgOwnerAccess(memberships, board.organizationId)) {
-    return true;
-  }
-
-  return getAssignedVenueIds(memberships).has(board.venueId);
 }
 
 export type FakeBoardEventType = "board_opened" | "board_closed" | "board_reset";
@@ -284,10 +239,7 @@ export function createFakeBoardManagementHarness(
     events.push({ boardId, type, actorAdminUserId });
   }
 
-  function requireOperableBoard(
-    rbac: { memberships: readonly AdminMembershipContext[] },
-    boardId: string,
-  ): BoardSummary | null {
+  function requireOperableBoard(rbac: AdminRbacContext, boardId: string): BoardSummary | null {
     const board = findBoard(boardId);
 
     if (!board) {
@@ -306,66 +258,81 @@ export function createFakeBoardManagementHarness(
   const service: BoardManagementService & { boards: BoardSummary[] } = {
     boards: harness.boards,
 
-    async listOrganizations({ memberships }) {
-      const organizationIds = new Set(memberships.map((membership) => membership.organizationId));
-
+    async listOrganizations(rbac: AdminRbacContext) {
+      if (rbac.isSuperAdmin) {
+        return organizationsFixture.slice();
+      }
+      const organizationIds = new Set(
+        rbac.memberships.map((membership) => membership.organizationId),
+      );
       return organizationsFixture.filter((organization) => organizationIds.has(organization.id));
     },
 
-    async listVenues({ memberships }) {
-      const assignedVenueIds = getAssignedVenueIds(memberships);
-
+    async listVenues(rbac: AdminRbacContext) {
+      if (rbac.isSuperAdmin) {
+        return venuesFixture.slice();
+      }
+      const assignedVenueIds = getAssignedVenueIds(rbac.memberships);
       return venuesFixture.filter((venue) => {
-        if (hasOrgOwnerAccess(memberships, venue.organizationId)) {
+        if (canReadVenue(rbac, { organizationId: venue.organizationId, venueId: venue.id })) {
           return true;
         }
-
         return assignedVenueIds.has(venue.id);
       });
     },
 
-    async listBoards({ memberships }) {
-      const assignedVenueIds = getAssignedVenueIds(memberships);
-
+    async listBoards(rbac: AdminRbacContext) {
+      if (rbac.isSuperAdmin) {
+        return harness.boards.slice();
+      }
+      const assignedVenueIds = getAssignedVenueIds(rbac.memberships);
       return harness.boards.filter((board) => {
-        if (hasOrgOwnerAccess(memberships, board.organizationId)) {
+        if (
+          canOperateBoard(rbac, {
+            boardId: board.id,
+            organizationId: board.organizationId,
+            venueId: board.venueId,
+          })
+        ) {
           return true;
         }
-
         return assignedVenueIds.has(board.venueId);
       });
     },
 
-    async getBoard({ memberships }, boardId) {
+    async getBoard(rbac: AdminRbacContext, boardId) {
       const board = findBoard(boardId);
 
       if (!board) {
         return null;
       }
 
-      if (hasOrgOwnerAccess(memberships, board.organizationId)) {
-        return board;
-      }
-
-      if (getAssignedVenueIds(memberships).has(board.venueId)) {
+      if (
+        canOperateBoard(rbac, {
+          boardId: board.id,
+          organizationId: board.organizationId,
+          venueId: board.venueId,
+        })
+      ) {
         return board;
       }
 
       return null;
     },
 
-    async createBoard({ memberships }, input: CreateBoardInput): Promise<CreateBoardResult> {
+    async createBoard(rbac: AdminRbacContext, input: CreateBoardInput): Promise<CreateBoardResult> {
       const venue = venuesFixture.find((candidate) => candidate.id === input.venueId);
 
       if (!venue) {
         return { status: "venue_not_found" };
       }
 
-      if (!canManageVenueForMemberships(memberships, venue.organizationId, venue.id)) {
-        if (canReadVenueForMemberships(memberships, venue.organizationId, venue.id)) {
+      const venueResource = { organizationId: venue.organizationId, venueId: venue.id };
+
+      if (!canManageVenue(rbac, venueResource)) {
+        if (canReadVenue(rbac, venueResource)) {
           return { status: "forbidden" };
         }
-
         return { status: "venue_not_found" };
       }
 
@@ -405,7 +372,7 @@ export function createFakeBoardManagementHarness(
     },
 
     async updateBoard(
-      { memberships },
+      rbac: AdminRbacContext,
       boardId: string,
       patch: PatchBoardInput,
     ): Promise<UpdateBoardResult> {
@@ -416,12 +383,17 @@ export function createFakeBoardManagementHarness(
       }
 
       const board = harness.boards[boardIndex] as BoardSummary;
+      const resource = {
+        boardId: board.id,
+        organizationId: board.organizationId,
+        venueId: board.venueId,
+      };
 
-      if (!canOperateBoardForMemberships(memberships, board)) {
+      if (!canOperateBoard(rbac, resource)) {
         return { status: "not_found" };
       }
 
-      if (!canManageVenueForMemberships(memberships, board.organizationId, board.venueId)) {
+      if (!canManageVenue(rbac, resource)) {
         return { status: "forbidden" };
       }
 
@@ -460,10 +432,7 @@ export function createFakeBoardManagementHarness(
       return { status: "updated", board: updated };
     },
 
-    async deleteBoard(
-      { memberships }: { memberships: readonly AdminMembershipContext[] },
-      boardId: string,
-    ): Promise<DeleteBoardResult> {
+    async deleteBoard(rbac: AdminRbacContext, boardId: string): Promise<DeleteBoardResult> {
       const boardIndex = harness.boards.findIndex((candidate) => candidate.id === boardId);
 
       if (boardIndex === -1) {
@@ -471,12 +440,17 @@ export function createFakeBoardManagementHarness(
       }
 
       const board = harness.boards[boardIndex] as BoardSummary;
+      const resource = {
+        boardId: board.id,
+        organizationId: board.organizationId,
+        venueId: board.venueId,
+      };
 
-      if (!canOperateBoardForMemberships(memberships, board)) {
+      if (!canOperateBoard(rbac, resource)) {
         return { status: "not_found" };
       }
 
-      if (!canManageVenueForMemberships(memberships, board.organizationId, board.venueId)) {
+      if (!canManageVenue(rbac, resource)) {
         return { status: "forbidden" };
       }
 
@@ -485,7 +459,7 @@ export function createFakeBoardManagementHarness(
     },
 
     async openBoard(
-      rbac: { memberships: readonly AdminMembershipContext[] },
+      rbac: AdminRbacContext,
       adminUserId: string,
       boardId: string,
     ): Promise<BoardOperationResult | null> {
@@ -511,7 +485,7 @@ export function createFakeBoardManagementHarness(
     },
 
     async closeBoard(
-      rbac: { memberships: readonly AdminMembershipContext[] },
+      rbac: AdminRbacContext,
       adminUserId: string,
       boardId: string,
     ): Promise<BoardOperationResult | null> {
@@ -537,7 +511,7 @@ export function createFakeBoardManagementHarness(
     },
 
     async resetBoard(
-      rbac: { memberships: readonly AdminMembershipContext[] },
+      rbac: AdminRbacContext,
       adminUserId: string,
       boardId: string,
     ): Promise<BoardOperationResult | null> {

@@ -95,6 +95,9 @@ async function seedDemoData() {
   const databaseUrl = requireEnv("DATABASE_URL");
   const adminEmail = requireEnv("SEED_ADMIN_EMAIL");
   const adminPassword = requireEnv("SEED_ADMIN_PASSWORD");
+  // Only promotes the configured seeded admin email. Idempotent.
+  // Set intentionally for bootstrap only; leave unset or false in production.
+  const seedSuperAdmin = process.env["SEED_SUPER_ADMIN"]?.trim().toLowerCase() === "true";
 
   const client = postgres(databaseUrl);
   const db = drizzle(client, { schema });
@@ -192,12 +195,22 @@ async function seedDemoData() {
           displayName: "Demo Admin",
           passwordHash,
           status: "active",
+          isSuperAdmin: seedSuperAdmin,
         })
         .returning();
       adminUser = created;
       console.log(`Created admin user: ${adminEmail}`);
     } else {
       console.log(`Admin user already exists: ${adminEmail}`);
+
+      if (seedSuperAdmin && !adminUser.isSuperAdmin) {
+        await db
+          .update(adminUsers)
+          .set({ isSuperAdmin: true })
+          .where(eq(adminUsers.id, adminUser.id));
+        adminUser = { ...adminUser, isSuperAdmin: true };
+        console.log(`Promoted admin user to super-admin: ${adminEmail}`);
+      }
     }
 
     const [existingMembership] = await db

@@ -205,6 +205,7 @@ export const AdminIdentity = t.Object({
   id: t.String(),
   email: t.String(),
   displayName: t.String(),
+  isSuperAdmin: t.Boolean(),
 });
 
 export const AdminMembershipSummary = t.Object({

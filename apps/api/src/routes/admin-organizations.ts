@@ -3,6 +3,7 @@ import { Elysia, t } from "elysia";
 import type { BoardManagementService } from "../admin/board-management";
 import type { AdminAuthService } from "../auth/admin-sessions";
 import { requireAdminSession } from "../auth/admin-route-auth";
+import { toAdminRbacContext } from "../auth/rbac";
 import { apiSuccess } from "../http/response";
 import { apiModels } from "../http/models";
 import { API_TAGS } from "../http/openapi-config";
@@ -18,9 +19,9 @@ export function adminOrganizationsRoutes(deps: AdminOrganizationsRouteDeps) {
     "/api/admin/organizations",
     async ({ request }) => {
       const session = await requireAdminSession(deps.authService, request.headers);
-      const organizations = await deps.boardManagementService.listOrganizations({
-        memberships: session.memberships,
-      });
+      const organizations = await deps.boardManagementService.listOrganizations(
+        toAdminRbacContext(session),
+      );
 
       return apiSuccess({ organizations });
     },

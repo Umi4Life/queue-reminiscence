@@ -7,8 +7,10 @@ import {
   assertCanOperateBoard,
   assertCanReadOrganization,
   assertCanReadVenue,
+  assertSuperAdmin,
   canManageBoard,
   canManageOrganization,
+  canManagePlatform,
   canManageVenue,
   canOperateBoard,
   canReadOrganization,
@@ -344,6 +346,72 @@ describe("admin RBAC helpers", () => {
       expect(() => assertCanOperateBoard(context(venueStaffMembership), boardA2)).toThrow(
         forbiddenError(),
       );
+    });
+  });
+
+  // Super-admin bypasses tenant resource scope only — not auth, validation,
+  // CSRF, rate limiting, delete guards, or audit requirements.
+  describe("super-admin scope bypass", () => {
+    const superAdmin: AdminRbacContext = { memberships: [], isSuperAdmin: true };
+    const regularAdmin: AdminRbacContext = { memberships: [], isSuperAdmin: false };
+
+    test("super-admin with zero memberships can read any org", () => {
+      expect(canReadOrganization(superAdmin, ORG_A)).toBe(true);
+      expect(canReadOrganization(superAdmin, ORG_B)).toBe(true);
+    });
+
+    test("super-admin with zero memberships can manage any org", () => {
+      expect(canManageOrganization(superAdmin, ORG_A)).toBe(true);
+      expect(canManageOrganization(superAdmin, ORG_B)).toBe(true);
+    });
+
+    test("super-admin with zero memberships can read any venue", () => {
+      expect(canReadVenue(superAdmin, venueA1)).toBe(true);
+      expect(canReadVenue(superAdmin, venueB1)).toBe(true);
+    });
+
+    test("super-admin with zero memberships can manage any venue", () => {
+      expect(canManageVenue(superAdmin, venueA1)).toBe(true);
+      expect(canManageVenue(superAdmin, venueB1)).toBe(true);
+    });
+
+    test("super-admin with zero memberships can manage any board", () => {
+      expect(canManageBoard(superAdmin, boardA1)).toBe(true);
+      expect(canManageBoard(superAdmin, boardA2)).toBe(true);
+    });
+
+    test("super-admin with zero memberships can operate any board", () => {
+      expect(canOperateBoard(superAdmin, boardA1)).toBe(true);
+      expect(canOperateBoard(superAdmin, boardA2)).toBe(true);
+    });
+
+    test("canManagePlatform returns true for super-admin", () => {
+      expect(canManagePlatform(superAdmin)).toBe(true);
+    });
+
+    test("canManagePlatform returns false for non-super-admin", () => {
+      expect(canManagePlatform(regularAdmin)).toBe(false);
+      expect(canManagePlatform(context(orgOwnerMembership))).toBe(false);
+    });
+
+    test("assertSuperAdmin does not throw for super-admin", () => {
+      assertSuperAdmin(superAdmin);
+    });
+
+    test("assertSuperAdmin throws forbidden for non-super-admin", () => {
+      expect(() => assertSuperAdmin(regularAdmin)).toThrow(forbiddenError());
+    });
+
+    test("assertSuperAdmin throws forbidden for org_owner without isSuperAdmin", () => {
+      expect(() => assertSuperAdmin(context(orgOwnerMembership))).toThrow(forbiddenError());
+    });
+
+    test("non-super-admin with zero memberships cannot read any org", () => {
+      expect(canReadOrganization(regularAdmin, ORG_A)).toBe(false);
+    });
+
+    test("non-super-admin with zero memberships cannot manage any org", () => {
+      expect(canManageOrganization(regularAdmin, ORG_A)).toBe(false);
     });
   });
 });
