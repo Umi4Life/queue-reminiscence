@@ -10,10 +10,18 @@ import type {
 } from "../src/admin/board-management";
 import type { CreateBoardInput, PatchBoardInput } from "../src/admin/board-input";
 import { patchChangesDisplayVersion } from "../src/admin/board-input";
+import type {
+  CreateOrgResult,
+  DeleteOrgResult,
+  OrgManagementService,
+  UpdateOrgResult,
+} from "../src/admin/org-management";
 import type { AdminAuthService, AdminSessionContext } from "../src/auth/admin-sessions";
 import { unauthorizedError } from "../src/http/errors";
 import {
   assertCanOperateBoard,
+  canManageOrganization,
+  canManagePlatform,
   canManageVenue,
   canOperateBoard,
   canReadVenue,
@@ -537,3 +545,56 @@ export function createFakeBoardManagementHarness(
 }
 
 export const sessionCookie = "qr_admin_session=test-session-token";
+
+export function createFakeOrgManagementService(
+  initialOrgs: OrganizationSummary[] = organizationsFixture.map((o) => ({ ...o })),
+): OrgManagementService {
+  const orgs: OrganizationSummary[] = initialOrgs.map((o) => ({ ...o }));
+  const ts = new Date("2026-06-01T00:00:00.000Z");
+
+  return {
+    async createOrganization(rbac, input): Promise<CreateOrgResult> {
+      if (!canManagePlatform(rbac)) {
+        return { status: "forbidden" };
+      }
+      if (orgs.some((o) => o.slug === input.slug)) {
+        return { status: "conflict" };
+      }
+      const created: OrganizationSummary = {
+        id: crypto.randomUUID(),
+        slug: input.slug,
+        name: input.name,
+        createdAt: ts,
+        updatedAt: ts,
+      };
+      orgs.push(created);
+      return { status: "created", organization: created };
+    },
+
+    async updateOrganization(rbac, orgId, patch): Promise<UpdateOrgResult> {
+      const index = orgs.findIndex((o) => o.id === orgId);
+      if (index === -1) return { status: "not_found" };
+      if (!canManageOrganization(rbac, orgId)) return { status: "forbidden" };
+      if (patch.slug !== undefined && orgs.some((o) => o.id !== orgId && o.slug === patch.slug)) {
+        return { status: "conflict" };
+      }
+      const updated: OrganizationSummary = {
+        ...(orgs[index] as OrganizationSummary),
+        ...patch,
+        updatedAt: new Date("2026-06-13T12:00:00.000Z"),
+      };
+      orgs[index] = updated;
+      return { status: "updated", organization: updated };
+    },
+
+    async deleteOrganization(rbac, orgId): Promise<DeleteOrgResult> {
+      const index = orgs.findIndex((o) => o.id === orgId);
+      if (index === -1) return { status: "not_found" };
+      if (!canManagePlatform(rbac)) return { status: "forbidden" };
+      // ORG_B is treated as non-empty in the fake (mirrors venuesFixture having VENUE_B1)
+      if (orgId === ORG_B) return { status: "not_empty" };
+      orgs.splice(index, 1);
+      return { status: "deleted" };
+    },
+  };
+}

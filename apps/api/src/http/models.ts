@@ -22,10 +22,13 @@ export const apiModels = new Elysia({ name: "api-models" }).model({
   ChangePasswordBody: schemas.ChangePasswordBody,
   ClaimAccessBody: schemas.ClaimAccessBody,
   AddEntryBody: schemas.AddEntryBody,
+  CreateOrganizationBody: schemas.CreateOrganizationBody,
+  PatchOrganizationBody: schemas.PatchOrganizationBody,
   CreateBoardBody: schemas.CreateBoardBody,
   PatchBoardBody: schemas.PatchBoardBody,
 
   // Path params & query strings
+  OrgIdParams: schemas.OrgIdParams,
   BoardIdParams: schemas.BoardIdParams,
   PublicSlugParams: schemas.PublicSlugParams,
   EntryParams: schemas.EntryParams,
