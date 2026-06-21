@@ -15,15 +15,18 @@
   let removeError = $state<string | null>(null);
 
   // The cookie-blocked notice is decided by the loader from the one-shot
-  // `?claimed=1` marker. After mount we drop the marker from the URL — a shallow
-  // `replaceState` that does not re-run the loader, so `data.cookiesBlocked` stays
-  // put for this view while a reload or a later genuine session expiry can never be
-  // mistaken for a cookie problem.
+  // `?claimed=1` marker. After mount we drop the marker from the URL with a
+  // shallow SvelteKit history update, so `data.cookiesBlocked` stays put for this
+  // view while a reload or later genuine session expiry can never be mistaken for
+  // a cookie problem. Defer one macrotask: during the initial redirect landing,
+  // SvelteKit can run component mount effects before the client router is marked
+  // initialized, and an immediate `replaceState` aborts later invalidation.
   onMount(() => {
     if ($page.url.searchParams.has("claimed")) {
       const cleaned = new URL($page.url);
       cleaned.searchParams.delete("claimed");
-      replaceState(cleaned, $page.state);
+      const timer = window.setTimeout(() => replaceState(cleaned, $page.state), 0);
+      return () => window.clearTimeout(timer);
     }
   });
 
