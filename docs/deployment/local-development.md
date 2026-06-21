@@ -1,6 +1,6 @@
 # Local Development — Docker Compose Quickstart
 
-This guide covers running the full Queue Reminiscence stack locally using Docker Compose.
+This guide covers running the full Reminiscence stack locally using Docker Compose.
 
 > Prefer running without Docker? Start Postgres separately and run the apps directly — see [Bare-Bun Dev](#bare-bun-dev) below.
 

@@ -5,7 +5,7 @@
 </script>
 
 <svelte:head>
-  <title>Queue Reminiscence</title>
+  <title>Reminiscence</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 

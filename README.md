@@ -13,7 +13,7 @@
 
 ## What it is
 
-Queue Reminiscence replaces the paper queue sheet at an arcade cabinet (or any casual venue) while keeping its social, no-account culture intact:
+Reminiscence replaces the paper queue sheet at an arcade cabinet (or any casual venue) while keeping its social, no-account culture intact:
 
 - **No participant accounts.** Players scan the board's current QR, see a readable URL, type any display name, and add or remove themselves. No signup, no login.
 - **QR-derived access.** Edit access comes from the current, rotating QR credential. Staff rotate it to cut off abuse — old codes simply stop working.

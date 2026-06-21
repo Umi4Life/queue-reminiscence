@@ -99,10 +99,10 @@ Every JSON endpoint returns one of two shapes:
 
 export const openApiDocumentation: Partial<OpenAPIV3.Document> = {
   info: {
-    title: "Queue Reminiscence API",
+    title: "Reminiscence API",
     description: DESCRIPTION,
     version: "1.0.0",
-    contact: { name: "Queue Reminiscence" },
+    contact: { name: "Reminiscence" },
     license: { name: "Private" },
   },
   servers: [

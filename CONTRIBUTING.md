@@ -1,4 +1,4 @@
-# Contributing to Queue Reminiscence
+# Contributing to Reminiscence
 
 This project is a **Bun workspace** running an **Elysia.js** API and two **SvelteKit** apps. This guide gets you from clone to a green quality gate.
 

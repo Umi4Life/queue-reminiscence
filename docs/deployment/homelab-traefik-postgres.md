@@ -1,6 +1,6 @@
 # Homelab Deployment — External Postgres + Traefik
 
-This guide covers deploying Queue Reminiscence on a self-hosted Linux machine with:
+This guide covers deploying Reminiscence on a self-hosted Linux machine with:
 
 - **External PostgreSQL** managed by your homelab (Postgres does not run in this compose stack).
 - **External Traefik** as the reverse proxy/TLS terminator (Traefik does not run in this compose stack).

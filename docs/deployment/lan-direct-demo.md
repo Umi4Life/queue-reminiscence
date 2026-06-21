@@ -1,6 +1,6 @@
 # LAN Direct Demo — Homelab Host Without Traefik
 
-Use this mode when you want to demo Queue Reminiscence from a homelab machine by opening the app containers directly on LAN ports, for example:
+Use this mode when you want to demo Reminiscence from a homelab machine by opening the app containers directly on LAN ports, for example:
 
 - Display app: `http://192.168.1.213:3000`
 - Admin app: `http://192.168.1.213:3001`
