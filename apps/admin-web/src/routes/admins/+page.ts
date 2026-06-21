@@ -10,7 +10,10 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 
   let admins: AdminUserSummary[] = [];
 
-  if (session?.admin.isSuperAdmin) {
+  const canManage =
+    session?.admin.isSuperAdmin || session?.memberships.some((m) => m.role === "org_owner");
+
+  if (canManage) {
     try {
       const result = await listAdmins(fetch);
       admins = result.admins;

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { updateAdmin, resetAdminPassword, assignMembership, revokeMembership, getAdmin, type AdminUserSummary, type OrganizationSummary, type VenueSummary } from "$lib/api";
+  import { updateAdmin, resetAdminPassword, assignMembership, revokeMembership, getAdmin, listAdmins, type AdminUserSummary, type OrganizationSummary, type VenueSummary } from "$lib/api";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -30,9 +30,28 @@
   let assignError = $state<string | null>(null);
   let assignBusy = $state(false);
 
+  let canManageAdmins = $derived(
+    data.session?.admin.isSuperAdmin ||
+      (data.session?.memberships.some((m) => m.role === "org_owner") ?? false),
+  );
+
   let venuesForOrg = $derived(
     assignOrgId ? data.venues.filter((v: VenueSummary) => v.organizationId === assignOrgId) : []
   );
+
+  async function refreshAdmin(adminId: string): Promise<AdminUserSummary | null> {
+    try {
+      if (data.session?.admin.isSuperAdmin) {
+        const result = await getAdmin(adminId);
+        return result.admin;
+      } else {
+        const result = await listAdmins();
+        return result.admins.find((a) => a.id === adminId) ?? null;
+      }
+    } catch {
+      return null;
+    }
+  }
 
   async function handleEditSubmit(event: SubmitEvent) {
     event.preventDefault();
@@ -99,9 +118,7 @@
         venueId: assignVenueId || null,
         role: assignRole,
       });
-      // Reload admin to get updated memberships
-      const result = await getAdmin(admin.id);
-      admin = result.admin;
+      admin = (await refreshAdmin(admin.id)) ?? admin;
       assignOrgId = "";
       assignVenueId = "";
       assignRole = "venue_staff";
@@ -117,8 +134,7 @@
     if (!confirm("Revoke this membership?")) return;
     try {
       await revokeMembership(admin.id, membershipId);
-      const result = await getAdmin(admin.id);
-      admin = result.admin;
+      admin = (await refreshAdmin(admin.id)) ?? admin;
     } catch (e) {
       assignError = e instanceof Error ? e.message : "Failed to revoke membership.";
     }
@@ -145,7 +161,7 @@
   </header>
 
   <main class="content">
-    {#if !data.session?.admin.isSuperAdmin}
+    {#if !canManageAdmins}
       <div class="card">
         <p class="error">You do not have permission to manage admins.</p>
       </div>
@@ -285,7 +301,9 @@
             <label>
               Role
               <select bind:value={assignRole} required disabled={assignBusy}>
-                <option value="org_owner">org_owner</option>
+                {#if data.session?.admin.isSuperAdmin}
+                  <option value="org_owner">org_owner</option>
+                {/if}
                 <option value="venue_manager">venue_manager</option>
                 <option value="venue_staff">venue_staff</option>
               </select>

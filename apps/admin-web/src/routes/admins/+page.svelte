@@ -2,6 +2,11 @@
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
+
+  let canManage = $derived(
+    data.session?.admin.isSuperAdmin ||
+      (data.session?.memberships.some((m) => m.role === "org_owner") ?? false),
+  );
 </script>
 
 <div class="page">
@@ -18,7 +23,7 @@
   </header>
 
   <main class="content">
-    {#if !data.session?.admin.isSuperAdmin}
+    {#if !canManage}
       <div class="card">
         <p class="error">You do not have permission to manage admins.</p>
       </div>
