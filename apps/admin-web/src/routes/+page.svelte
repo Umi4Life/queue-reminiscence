@@ -6,6 +6,9 @@
   let { data }: { data: PageData } = $props();
 
   let boards = $derived(data.boards);
+  let isOrgOwner = $derived(
+    data.session?.memberships.some((m) => m.role === "org_owner") ?? false,
+  );
   let queueCounts = $state<Record<string, number | null>>({});
   let logoutBusy = $state(false);
 
@@ -57,6 +60,9 @@
         <a href="/organizations" class="new-board-btn">Manage</a>
       </div>
       <div style="margin-bottom: 1.5rem;"></div>
+    {/if}
+
+    {#if data.session?.admin.isSuperAdmin || isOrgOwner}
       <div class="section-header">
         <h2 class="section-title">Admins</h2>
         <a href="/admins" class="new-board-btn" data-testid="admins-manage-link">Manage</a>

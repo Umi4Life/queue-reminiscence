@@ -67,10 +67,12 @@ function writeEnvIfMissing(): void {
 
 function resetE2EAdminUsers(): void {
   console.log("[global-setup] Removing e2e-created admin users...");
+  const e2eEmails = ["newadmin-e2e@example.com", "orgmember-e2e@example.com"];
+  const emailList = e2eEmails.map((e) => `'${e}'`).join(", ");
   const sql = [
-    `DELETE FROM admin_memberships WHERE admin_user_id IN (SELECT id FROM admin_users WHERE email = 'newadmin-e2e@example.com');`,
-    `DELETE FROM admin_sessions WHERE admin_user_id IN (SELECT id FROM admin_users WHERE email = 'newadmin-e2e@example.com');`,
-    `DELETE FROM admin_users WHERE email = 'newadmin-e2e@example.com';`,
+    `DELETE FROM admin_memberships WHERE admin_user_id IN (SELECT id FROM admin_users WHERE email IN (${emailList}));`,
+    `DELETE FROM admin_sessions WHERE admin_user_id IN (SELECT id FROM admin_users WHERE email IN (${emailList}));`,
+    `DELETE FROM admin_users WHERE email IN (${emailList});`,
   ].join(" ");
   runSilent(`docker exec ${CONTAINER} psql -U ${PG_USER} -d ${PG_USER} -c "${sql}"`);
   console.log("[global-setup] E2E admin users removed.");
