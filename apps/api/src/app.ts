@@ -2,8 +2,8 @@ import type { AppConfig } from "@queue-reminiscence/config";
 import { parseEnv } from "@queue-reminiscence/config/env";
 import type { Database } from "@queue-reminiscence/db";
 import { createDb } from "@queue-reminiscence/db";
-import { openapi } from "@elysia/openapi";
-import { Elysia, ValidationError } from "elysia";
+import { openapi, toOpenAPISchema } from "@elysia/openapi";
+import { Elysia, ValidationError, type AnyElysia } from "elysia";
 
 import {
   createDbBoardManagementService,
@@ -157,6 +157,10 @@ export function createApp(deps: AppDeps = {}) {
   const adminOrigin = adminOriginOf(config);
   const publicOrigin = publicOriginOf(config);
 
+  // Assigned after the app chain is built so the /api/docs/json handler can
+  // call toOpenAPISchema(appSelf) at request time (always after createApp returns).
+  let appSelf: AnyElysia = null!;
+
   // Emit HSTS only when the deployment actually terminates TLS, mirroring the
   // `Secure`-cookie convention used elsewhere. Harmless to omit over plain HTTP
   // (dev), and avoids poisoning a browser's HSTS cache for a non-HTTPS host.
@@ -173,15 +177,38 @@ export function createApp(deps: AppDeps = {}) {
 
   // Cap request bodies well above the largest legitimate JSON payload here
   // (claims, logins, display names) so an oversized POST can't exhaust memory.
-  return new Elysia({
+  const app = new Elysia({
     name: "queue-reminiscence-api",
     serve: { maxRequestBodySize: 64 * 1024 },
   })
-    .use(openapi({ path: "/api/docs", documentation: openApiDocumentation }))
-    .onAfterHandle({ as: "global" }, ({ request, response }) => {
-      if (new URL(request.url).pathname !== "/api/docs/json") return;
-      return stripInvalidOpenApiTypes(response);
-    })
+    .use(
+      openapi({
+        path: "/api/docs",
+        specPath: "/api/docs/json-raw",
+        scalar: { url: "api/docs/json" },
+        documentation: openApiDocumentation,
+      }),
+    )
+    .get(
+      "/api/docs/json",
+      () => {
+        const { paths, components } = toOpenAPISchema(appSelf);
+        const spec = {
+          openapi: "3.0.3",
+          ...openApiDocumentation,
+          paths: { ...(paths as Record<string, unknown>), ...openApiDocumentation.paths },
+          components: {
+            ...openApiDocumentation.components,
+            schemas: {
+              ...(components as { schemas?: Record<string, unknown> }).schemas,
+              ...openApiDocumentation.components?.schemas,
+            },
+          },
+        };
+        return stripInvalidOpenApiTypes(spec);
+      },
+      { detail: { hide: true } },
+    )
     .onRequest(({ request, set }) => {
       const { headers, preflight } = resolveCors(allowedOrigins, request);
       Object.assign(set.headers, headers, securityHeaders);
@@ -289,6 +316,9 @@ export function createApp(deps: AppDeps = {}) {
       }),
     )
     .use(qrRoutes({ config, db, rateLimiter }));
+
+  appSelf = app;
+  return app;
 }
 
 export function createTestApp(deps: AppDeps = {}) {
