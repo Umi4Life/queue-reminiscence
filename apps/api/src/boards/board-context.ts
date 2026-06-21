@@ -6,6 +6,7 @@ import type { BoardResourceContext } from "../auth/rbac";
 
 export type BoardWithResourceContext = BoardResourceContext & {
   board: Board;
+  venueName: string;
 };
 
 type DbLike = Database | DbTransaction;
@@ -30,6 +31,7 @@ export async function loadBoardWithResourceContext(
     venueId: row.venue.id,
     organizationId: row.venue.organizationId,
     board: row.board,
+    venueName: row.venue.name,
   };
 }
 
