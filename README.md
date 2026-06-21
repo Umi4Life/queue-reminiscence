@@ -21,6 +21,18 @@ Queue Reminiscence replaces the paper queue sheet at an arcade cabinet (or any c
 - **Operator-managed.** Venue staff own the boards from a separate admin app — open/close/reset, soft-delete entries, rotate access — under an Organization → Venue → Board hierarchy.
 - **Display-friendly.** A polling display-state API (ETag/304) feeds e-ink boards and other read-only displays.
 
+## Trust & safety
+
+A public queue link is a **temporary board invite, not an account** — players never sign up, log in, install an app, or pay. With the current link, anyone can **view** one board, **join** its queue, and **remove** entries (player-moderated, like a physical whiteboard). A public link **cannot** reach admin controls, create or configure boards, or touch any other board — staff/operator access is a separate authenticated surface.
+
+Viewing a board is always public; **editing requires a current invite**. When the link expires or staff rotate it, editing stops but viewing continues — so a leaked link is neutralized by one rotation. Staff can rotate, close, or reset a board at any time, and every queue change is written to a public activity log. The intended deployment is a **QR printed beside the cabinet it controls**; a link shared online loses that physical context, so always show the readable URL next to the QR.
+
+- **[SECURITY.md](SECURITY.md)** — trust model, public-access boundaries, and vulnerability reporting.
+- **[`docs/threat-model.md`](docs/threat-model.md)** — trust boundaries, expected abuse, and the mitigation behind each (cited to code).
+- **[`docs/operator-pilot.md`](docs/operator-pilot.md)** — running a low-risk venue pilot, staff controls, and rollback.
+
+Reminiscence is built with AI-assisted tooling, but changes are reviewed, tested, and maintained by the repository owner; security-sensitive paths are treated as manually reviewed code — see the [development note](SECURITY.md#development-and-review-note).
+
 ## Tech stack
 
 | Layer            | Technology                               | Where             | Port   |
@@ -152,6 +164,10 @@ The e2e suite boots its **own isolated Postgres container on port 5433** (never 
 
 ## Documentation
 
+- [SECURITY.md](SECURITY.md) — security & trust model, public-access boundaries, and vulnerability reporting.
+- [`docs/threat-model.md`](docs/threat-model.md) — trust boundaries, expected abuse, and mitigations (cited to code).
+- [`docs/operator-pilot.md`](docs/operator-pilot.md) — low-risk venue pilot guide, staff controls, and rollback.
+- [`docs/signage/`](docs/signage/) — printable QR sign templates for cabinets.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — dev setup, workspace layout, quality gate, conventions.
 - [`docs/deployment/`](docs/deployment/) — local, LAN-direct demo, GHCR-image, and homelab operational guides.
 - [`docs/journal/`](docs/journal/) — preserved MVP build history (architecture, product PRD, and the 14-phase plan + completion journals).
