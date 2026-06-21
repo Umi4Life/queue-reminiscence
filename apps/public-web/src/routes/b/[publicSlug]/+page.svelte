@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { invalidateAll } from "$app/navigation";
+  import { onMount } from "svelte";
+  import { invalidateAll, replaceState } from "$app/navigation";
+  import { page } from "$app/stores";
   import { addEntry as apiAdd, removeEntry as apiRemove } from "$lib/api";
   import AddNameForm from "$lib/components/AddNameForm.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
@@ -11,6 +13,19 @@
 
   let confirmEntry = $state<{ id: string; displayName: string } | null>(null);
   let removeError = $state<string | null>(null);
+
+  // The cookie-blocked notice is decided by the loader from the one-shot
+  // `?claimed=1` marker. After mount we drop the marker from the URL — a shallow
+  // `replaceState` that does not re-run the loader, so `data.cookiesBlocked` stays
+  // put for this view while a reload or a later genuine session expiry can never be
+  // mistaken for a cookie problem.
+  onMount(() => {
+    if ($page.url.searchParams.has("claimed")) {
+      const cleaned = new URL($page.url);
+      cleaned.searchParams.delete("claimed");
+      replaceState(cleaned, $page.state);
+    }
+  });
 
   function requestRemove(id: string, displayName: string) {
     confirmEntry = { id, displayName };
@@ -74,6 +89,16 @@
     </header>
 
     <main class="content">
+      {#if data.cookiesBlocked}
+        <div class="cookie-notice" role="alert">
+          <p class="cookie-notice-title">Your browser is blocking cookies for this site</p>
+          <p class="cookie-notice-body">
+            You can view the queue, but joining or leaving needs cookies enabled. Allow cookies for
+            this site, then scan the on-site QR code again to join.
+          </p>
+        </div>
+      {/if}
+
       <section class="section">
         <h2 class="section-title">Queue</h2>
         <QueueList entries={queue} canRemove={mutationAccess.canRemove} onRemoveRequest={requestRemove} />
@@ -176,5 +201,25 @@
     margin-top: 0.75rem;
     color: var(--color-danger);
     font-size: 0.875rem;
+  }
+
+  .cookie-notice {
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--color-error-border);
+    background: var(--color-error-bg);
+    border-radius: var(--radius-md);
+  }
+
+  .cookie-notice-title {
+    color: var(--color-error-text);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    margin-bottom: 0.375rem;
+  }
+
+  .cookie-notice-body {
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    line-height: 1.5;
   }
 </style>
