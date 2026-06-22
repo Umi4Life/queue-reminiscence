@@ -55,8 +55,6 @@ jobs:
     name: E2E tests
     runs-on: ubuntu-latest
     needs: [quality, docker-build]
-    env:
-      DATABASE_URL: postgres://queue_reminiscence:queue_reminiscence@localhost:5432/queue_reminiscence
     steps:
       - uses: actions/checkout@v4
 
@@ -72,61 +70,6 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
 
       - run: bun install --frozen-lockfile
-
-      - name: Write .env
-        run: |
-          cat <<'EOF' > .env
-          DATABASE_URL=postgres://queue_reminiscence:queue_reminiscence@localhost:5432/queue_reminiscence
-          PUBLIC_APP_URL=http://localhost:3000
-          ADMIN_APP_URL=http://localhost:3001
-          API_PUBLIC_BASE_URL=http://localhost:3002
-          API_ADMIN_BASE_URL=http://localhost:3002
-          SESSION_SECRET=ci-session-secret-not-real
-          TOKEN_HMAC_SECRET=ci-token-hmac-secret-not-real
-          RATE_LIMIT_HMAC_SECRET=ci-rate-limit-hmac-secret-not-real
-          TRUST_PROXY=false
-          ADMIN_SESSION_TTL_DAYS=7
-          PUBLIC_MUTATION_SESSION_TTL_HOURS=24
-          EOF
-
-      - name: Start Postgres
-        run: docker compose up -d postgres
-
-      - name: Wait for Postgres
-        run: |
-          for i in $(seq 1 30); do
-            if docker compose exec -T postgres pg_isready -U queue_reminiscence; then
-              exit 0
-            fi
-            echo "Waiting for postgres... ($i)"
-            sleep 1
-          done
-
-          echo "Postgres did not become ready"
-          docker compose ps
-          docker compose logs postgres
-          exit 1
-
-      - name: Run DB migrations
-        run: bun run --cwd packages/db db:migrate
-
-      - name: Start API
-        run: docker compose up -d api
-
-      - name: Wait for API
-        run: |
-          for i in $(seq 1 90); do
-            if curl -sf http://localhost:3002/healthz; then
-              exit 0
-            fi
-            echo "Waiting for API... ($i)"
-            sleep 1
-          done
-
-          echo "API did not become ready"
-          docker compose ps
-          docker compose logs api
-          exit 1
 
       - name: Install Playwright browsers
         run: bun run e2e:install
