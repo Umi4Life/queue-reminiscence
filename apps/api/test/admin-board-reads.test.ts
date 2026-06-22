@@ -6,6 +6,7 @@ import {
   BOARD_A2,
   BOARD_B1,
   createFakeAuthService,
+  createFakeBoardAccessService,
   createFakeBoardManagementService,
   orgOwnerMembership,
   sessionCookie,
@@ -19,6 +20,7 @@ function createApp(memberships = [orgOwnerMembership]) {
     config: testAppConfig,
     adminAuthService: createFakeAuthService(memberships),
     boardManagementService: createFakeBoardManagementService(),
+    boardAccessService: createFakeBoardAccessService(),
     checkDatabase: async () => true,
   });
 }
@@ -90,7 +92,7 @@ describe("admin board read routes", () => {
     expect(await response.json()).toEqual({ ok: true, data: { boards: [] } });
   });
 
-  test("board detail returns board for accessible board", async () => {
+  test("board detail returns board and credential for accessible board", async () => {
     const app = createApp([venueStaffMembership]);
 
     const response = await app.handle(
@@ -102,9 +104,10 @@ describe("admin board read routes", () => {
     expect(response.status).toBe(200);
     const json = (await response.json()) as {
       ok: true;
-      data: { board: { id: string } };
+      data: { board: { id: string }; credential: null };
     };
     expect(json.data.board.id).toBe(BOARD_A1);
+    expect(json.data.credential).toBe(null);
   });
 
   test("board detail returns 404 for inaccessible board to avoid existence leak", async () => {

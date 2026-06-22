@@ -129,14 +129,28 @@ export function adminBoardsRoutes(deps: AdminBoardsRouteDeps) {
           throw validationError(conflictMessage(result.field));
         }
 
-        return apiSuccess({ board: result.board });
+        const accessResult = await deps.boardAccessService.rotateBoardAccessCredential(
+          toAdminRbacContext(session),
+          session.admin.id,
+          result.board.id,
+        );
+
+        if (accessResult.status === "not_found") {
+          throw notFoundError();
+        }
+
+        return apiSuccess({ board: accessResult.board, credential: accessResult.credential });
       },
       {
         body: "CreateBoardBody",
-        response: { 200: success(t.Object({ board: BoardSummary })), ...adminBoardErrors },
+        response: {
+          200: success(t.Object({ board: BoardSummary, credential: RotatedBoardAccessCredential })),
+          ...adminBoardErrors,
+        },
         detail: {
           summary: "Create board",
-          description: "Creates a board in the closed state. Slugs must be unique within scope.",
+          description:
+            "Creates a board and issues an initial active QR access credential. Slugs must be unique within scope.",
           tags: [API_TAGS.adminBoards],
           security: [{ AdminSession: [] }],
         },
@@ -146,27 +160,35 @@ export function adminBoardsRoutes(deps: AdminBoardsRouteDeps) {
       "/api/admin/boards/:boardId",
       async ({ request, params }) => {
         const session = await requireAdminSession(deps.authService, request.headers);
-        const board = await deps.boardManagementService.getBoard(
-          toAdminRbacContext(session),
-          params.boardId,
-        );
+        const rbac = toAdminRbacContext(session);
+        const board = await deps.boardManagementService.getBoard(rbac, params.boardId);
 
         if (!board) {
           throw notFoundError();
         }
 
-        return apiSuccess({ board });
+        const credentialResult = await deps.boardAccessService.getActiveBoardCredential(
+          rbac,
+          params.boardId,
+        );
+        const credential =
+          credentialResult.status === "active" ? credentialResult.credential : null;
+
+        return apiSuccess({ board, credential });
       },
       {
         params: "BoardIdParams",
         response: {
-          200: success(t.Object({ board: BoardSummary })),
+          200: success(
+            t.Object({ board: BoardSummary, credential: t.Nullable(RotatedBoardAccessCredential) }),
+          ),
           401: "ErrorResponse",
           404: "ErrorResponse",
         },
         detail: {
           summary: "Get board",
-          description: "Returns a single board by id.",
+          description:
+            "Returns a single board by id, including the active QR access credential if one exists.",
           tags: [API_TAGS.adminBoards],
           security: [{ AdminSession: [] }],
         },

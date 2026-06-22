@@ -6,6 +6,7 @@ import {
   BOARD_A2,
   BOARD_B1,
   createFakeAuthService,
+  createFakeBoardAccessService,
   createFakeBoardManagementService,
   createFakeOrgManagementService,
   createFakeVenueManagementService,
@@ -25,6 +26,7 @@ function createSuperAdminApp() {
     config: testAppConfig,
     adminAuthService: createFakeAuthService([], { isSuperAdmin: true }),
     boardManagementService: createFakeBoardManagementService(),
+    boardAccessService: createFakeBoardAccessService(),
     venueManagementService: createFakeVenueManagementService(),
     checkDatabase: async () => true,
   });
@@ -35,6 +37,7 @@ function createRegularApp() {
     config: testAppConfig,
     adminAuthService: createFakeAuthService([]),
     boardManagementService: createFakeBoardManagementService(),
+    boardAccessService: createFakeBoardAccessService(),
     venueManagementService: createFakeVenueManagementService(),
     checkDatabase: async () => true,
   });

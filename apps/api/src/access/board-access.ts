@@ -13,7 +13,7 @@ import { toBoardSummaryFromRow, type BoardSummary } from "../admin/board-managem
 import { loadBoardWithResourceContext, lockBoardRow } from "../boards/board-context";
 import { createTokenPreview, generateOpaqueToken, hashOpaqueToken } from "../security/tokens";
 import { buildPublicAccessUrl } from "./access-url";
-import { encryptAccessCode } from "./credential-ciphertext";
+import { decryptAccessCode, encryptAccessCode } from "./credential-ciphertext";
 
 export interface RotatedBoardAccessCredential {
   id: string;
@@ -31,12 +31,21 @@ export type RotateBoardAccessResult =
     }
   | { status: "not_found" };
 
+export type GetActiveBoardCredentialResult =
+  | { status: "active"; credential: RotatedBoardAccessCredential }
+  | { status: "none" }
+  | { status: "not_found" };
+
 export interface BoardAccessService {
   rotateBoardAccessCredential(
     rbac: AdminRbacContext,
     adminUserId: string,
     boardId: string,
   ): Promise<RotateBoardAccessResult>;
+  getActiveBoardCredential(
+    rbac: AdminRbacContext,
+    boardId: string,
+  ): Promise<GetActiveBoardCredentialResult>;
 }
 
 async function revokeActiveCredentials(
@@ -168,6 +177,45 @@ export function createDbBoardAccessService(db: Database, config: AppConfig): Boa
           tokenPreview: mutation.credential.tokenPreview,
           version: mutation.credential.version,
           expiresAt: mutation.credential.expiresAt,
+        },
+      };
+    },
+
+    async getActiveBoardCredential(rbac, boardId) {
+      const context = await loadBoardWithResourceContext(db, boardId);
+
+      if (!context) {
+        return { status: "not_found" };
+      }
+
+      assertCanOperateBoard(rbac, context);
+
+      const [row] = await db
+        .select()
+        .from(boardAccessCredentials)
+        .where(
+          and(
+            eq(boardAccessCredentials.boardId, boardId),
+            eq(boardAccessCredentials.status, "active"),
+          ),
+        )
+        .orderBy(desc(boardAccessCredentials.version))
+        .limit(1);
+
+      if (!row || !row.accessCodeCiphertext) {
+        return { status: "none" };
+      }
+
+      const accessCode = decryptAccessCode(row.accessCodeCiphertext, config.tokenHmacSecret);
+
+      return {
+        status: "active",
+        credential: {
+          id: row.id,
+          accessUrl: buildPublicAccessUrl(config, accessCode),
+          tokenPreview: row.tokenPreview,
+          version: row.version,
+          expiresAt: row.expiresAt,
         },
       };
     },

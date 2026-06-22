@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import type { BoardAccessService, RotateBoardAccessResult } from "../src/access/board-access";
+import type {
+  BoardAccessService,
+  GetActiveBoardCredentialResult,
+  RotateBoardAccessResult,
+} from "../src/access/board-access";
 import { createTestApp } from "../src/app";
 import {
   BOARD_A1,
@@ -14,7 +18,7 @@ import {
 import { testAppConfig } from "./test-config";
 
 function createFakeBoardAccessService(
-  result: RotateBoardAccessResult = {
+  rotateResult: RotateBoardAccessResult = {
     status: "rotated",
     board: { ...boardsFixture[0]!, displayVersion: 2 },
     credential: {
@@ -25,6 +29,7 @@ function createFakeBoardAccessService(
       expiresAt: null,
     },
   },
+  activeResult: GetActiveBoardCredentialResult = { status: "none" },
 ): BoardAccessService & { calls: Array<{ adminUserId: string; boardId: string }> } {
   const calls: Array<{ adminUserId: string; boardId: string }> = [];
 
@@ -32,7 +37,10 @@ function createFakeBoardAccessService(
     calls,
     async rotateBoardAccessCredential(_rbac, adminUserId, boardId) {
       calls.push({ adminUserId, boardId });
-      return result;
+      return rotateResult;
+    },
+    async getActiveBoardCredential() {
+      return activeResult;
     },
   };
 }
