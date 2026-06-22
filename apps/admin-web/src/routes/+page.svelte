@@ -98,7 +98,6 @@
             <div class="board-info">
               <span class="board-name">{board.name}</span>
               <span class="board-venue">{board.venueName}</span>
-              <span class="board-slug">{board.publicSlug}</span>
             </div>
             <div class="board-meta">
               <span class="status-badge status-{board.status}">
