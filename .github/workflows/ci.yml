@@ -57,8 +57,6 @@ jobs:
     needs: [quality, docker-build]
     env:
       DATABASE_URL: postgres://queue_reminiscence:queue_reminiscence@localhost:5432/queue_reminiscence
-      SESSION_SECRET: ci-session-secret-not-real
-      TOKEN_SECRET: ci-token-secret-not-real
     steps:
       - uses: actions/checkout@v4
 
@@ -79,8 +77,16 @@ jobs:
         run: |
           cat <<'EOF' > .env
           DATABASE_URL=postgres://queue_reminiscence:queue_reminiscence@localhost:5432/queue_reminiscence
+          PUBLIC_APP_URL=http://localhost:3000
+          ADMIN_APP_URL=http://localhost:3001
+          API_PUBLIC_BASE_URL=http://localhost:3002
+          API_ADMIN_BASE_URL=http://localhost:3002
           SESSION_SECRET=ci-session-secret-not-real
-          TOKEN_SECRET=ci-token-secret-not-real
+          TOKEN_HMAC_SECRET=ci-token-hmac-secret-not-real
+          RATE_LIMIT_HMAC_SECRET=ci-rate-limit-hmac-secret-not-real
+          TRUST_PROXY=false
+          ADMIN_SESSION_TTL_DAYS=7
+          PUBLIC_MUTATION_SESSION_TTL_HOURS=24
           EOF
 
       - name: Start Postgres
