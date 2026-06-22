@@ -1,16 +1,8 @@
 /**
  * E2E regression: create a board and verify the QR is shown immediately on
- * the detail page — without the admin needing to click "Rotate QR link".
+ * the detail page — without the admin needing to generate or rotate QR first.
  *
- * EXPECTED FAILURE on current code: AdminBoardControls only renders
- * img[alt="Queue access QR"] after the Rotate action is triggered manually.
- * These tests define the desired UX once the feature is shipped.
- *
- * DEPENDENCIES:
- *   - Backend PR: POST /api/admin/boards must return { board, credential }
- *   - UI PR: board detail page must render the initial QR from the create
- *     response without requiring a separate rotate step
- *   - Running stack: Postgres on :5433, API on :3002, admin-web on :3001
+ * This asserts the shipped create-board QR UX on main.
  */
 import { expect, test, type Page } from "@playwright/test";
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./helpers/env";
@@ -47,8 +39,8 @@ test.describe("admin board create → QR visible immediately (regression)", () =
     await adminPage.goto(`${ADMIN_URL}/boards/new`);
     await expect(adminPage.locator("h1.page-title")).toContainText("New board");
 
-    // Use a stable-enough name; uniqueness ensured by a fixed prefix + test slug.
-    const boardName = "E2E QR Regression Board";
+    // Use a unique name so repeated local/CI runs do not collide with prior boards.
+    const boardName = `E2E QR Regression Board ${Date.now()}`;
 
     // If there are multiple venues a select is shown; pick the first available.
     const venueSelect = adminPage.locator("select").first();
@@ -68,15 +60,14 @@ test.describe("admin board create → QR visible immediately (regression)", () =
     await adminPage.getByRole("button", { name: "Create board" }).click();
 
     // Successful creation redirects to /boards/<uuid>.
-    await expect(adminPage).toHaveURL(/\/boards\/[0-9a-f-]+$/, { timeout: 15_000 });
+    await expect(adminPage).toHaveURL(/\/boards\/[0-9a-f-]+(\?.*)?$/, { timeout: 15_000 });
     boardDetailUrl = adminPage.url();
     expect(boardDetailUrl).toBeTruthy();
   });
 
-  test("QR image is visible on the board detail page without manual rotate", async () => {
+  test("QR image is visible on the board detail page without manual QR action", async () => {
     // REGRESSION: img[alt="Queue access QR"] must appear immediately on the
     // newly-created board's page.
-    // Old (broken) behavior: the QR is only shown after clicking "Rotate QR link".
     await adminPage.goto(boardDetailUrl);
 
     await expect(adminPage.locator('img[alt="Queue access QR"]')).toBeVisible({
@@ -105,10 +96,9 @@ test.describe("admin board create → QR visible immediately (regression)", () =
     await expect(adminPage.getByRole("button", { name: "Open QR (print / save)" })).toBeVisible();
   });
 
-  test("Rotate QR button is present and warns about REPLACING the existing QR (not first-time setup)", async () => {
-    // The "Rotate QR link" button must still exist for regeneration use cases.
-    // When clicked, the confirmation dialog must describe a replacement/revoke
-    // of the current code — proving the board already has an active QR.
+  test("Regenerate QR button is present and warns about replacing the existing QR", async () => {
+    // Regeneration must describe replacement/revocation of the current code,
+    // proving the board already has an active QR.
     await adminPage.goto(boardDetailUrl);
 
     // After creation with a credential, the button label is "Regenerate QR".

@@ -1,15 +1,7 @@
 /**
- * Regression: board creation must automatically generate and return an access
- * credential so the admin sees a QR immediately — without a separate
- * "Rotate QR link" step.
- *
- * EXPECTED FAILURE on current code: POST /api/admin/boards returns only
- * { board } with no credential. These tests define the desired contract.
- * They will pass once the create-board route calls boardAccessService and
- * includes credential in its response.
- *
- * DEPENDENCY: requires the backend PR that atomically generates the first
- * access credential during board creation.
+ * Regression: board creation automatically generates and returns an access
+ * credential so the admin sees a QR immediately — without a separate generate
+ * or rotate step.
  */
 import { describe, expect, test } from "bun:test";
 
