@@ -29,11 +29,10 @@ function createFakeBoardAccessService(
   return {
     async rotateBoardAccessCredential(_rbac, _adminUserId, boardId) {
       // Look up the board from the shared management service state (handles newly created boards)
-      const board =
-        boardManagementService.boards.find((b) => b.id === boardId) ?? {
-          ...boardsFixture[0]!,
-          id: boardId,
-        };
+      const board = boardManagementService.boards.find((b) => b.id === boardId) ?? {
+        ...boardsFixture[0]!,
+        id: boardId,
+      };
       return {
         status: "rotated",
         board: { ...board, displayVersion: board.displayVersion + 1 },
