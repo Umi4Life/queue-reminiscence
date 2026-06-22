@@ -8,6 +8,7 @@ import type {
   UpdateBoardResult,
   VenueSummary,
 } from "../src/admin/board-management";
+import type { BoardAccessService } from "../src/access/board-access";
 import type { CreateBoardInput, PatchBoardInput } from "../src/admin/board-input";
 import { patchChangesDisplayVersion } from "../src/admin/board-input";
 import type {
@@ -694,3 +695,17 @@ export function createFakeOrgManagementService(
 }
 
 export const sessionCookie = "qr_admin_session=test-session-token";
+
+export function createFakeBoardAccessService(
+  overrides: Partial<BoardAccessService> = {},
+): BoardAccessService {
+  return {
+    async rotateBoardAccessCredential() {
+      return { status: "not_found" };
+    },
+    async getActiveBoardCredential() {
+      return { status: "none" };
+    },
+    ...overrides,
+  };
+}
