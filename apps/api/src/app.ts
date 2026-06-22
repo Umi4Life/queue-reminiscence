@@ -151,7 +151,7 @@ export function createApp(deps: AppDeps = {}) {
     name: "queue-reminiscence-api",
     serve: { maxRequestBodySize: 64 * 1024 },
   })
-    .use(openapi({ path: "/api/docs", documentation: openApiDocumentation }))
+    .use(openapi({ path: "/api/docs", scalar: { url: "/api/docs/json" }, documentation: openApiDocumentation }))
     .onRequest(({ request, set }) => {
       const { headers, preflight } = resolveCors(allowedOrigins, request);
       Object.assign(set.headers, headers, securityHeaders);
