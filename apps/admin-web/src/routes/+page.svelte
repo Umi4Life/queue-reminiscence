@@ -11,7 +11,18 @@
   let isOrgOwner = $derived(
     data.session?.memberships.some((m) => m.role === "org_owner") ?? false,
   );
-  let organizationLabel = $derived(data.organizations.map((org) => org.name).join(" · "));
+  let organizationLabel = $derived.by(() => {
+    if (data.organizations.length === 0) return "";
+
+    if (data.session?.admin.isSuperAdmin) {
+      return `${data.organizations.length}${data.organizationsNextCursor ? "+" : ""} organizations`;
+    }
+
+    const names = data.organizations.map((org) => org.name);
+    if (names.length <= 2) return names.join(" · ");
+
+    return `${names.slice(0, 2).join(" · ")} · +${names.length - 2} more`;
+  });
   let queueCounts = $state<Record<string, number | null>>({});
   let logoutBusy = $state(false);
 
@@ -65,7 +76,7 @@
 <div class="page">
   <header class="header">
     <div class="header-inner">
-      <div>
+      <div class="header-copy">
         <p class="header-label">Admin</p>
         <h1 class="header-name">{data.session?.admin.displayName ?? ""}</h1>
         {#if organizationLabel}
@@ -168,6 +179,10 @@
     gap: 1rem;
   }
 
+  .header-copy {
+    min-width: 0;
+  }
+
   .header-label {
     font-size: 0.75rem;
     text-transform: uppercase;
@@ -186,6 +201,9 @@
     margin-top: 0.125rem;
     font-size: 0.875rem;
     color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .header-actions {
@@ -193,6 +211,18 @@
     align-items: center;
     gap: 0.5rem;
     flex-shrink: 0;
+  }
+
+  @media (max-width: 480px) {
+    .header-inner {
+      align-items: stretch;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .header-actions {
+      width: 100%;
+    }
   }
 
   .account-btn,
@@ -207,6 +237,7 @@
     white-space: nowrap;
     min-width: 5.25rem;
     min-height: 2rem;
+    flex: 1 1 auto;
     display: inline-flex;
     align-items: center;
     justify-content: center;
