@@ -12,6 +12,7 @@ export const load: PageLoad = async ({ fetch }) => {
   let boards: BoardSummary[] = [];
   let boardsNextCursor: string | null = null;
   let organizations: OrganizationSummary[] = [];
+  let organizationsNextCursor: string | null = null;
 
   try {
     const [boardsResult, organizationsResult] = await Promise.all([
@@ -21,9 +22,10 @@ export const load: PageLoad = async ({ fetch }) => {
     boards = boardsResult.boards;
     boardsNextCursor = boardsResult.nextCursor;
     organizations = organizationsResult.organizations;
+    organizationsNextCursor = organizationsResult.nextCursor;
   } catch {
     // boards stays empty on error; page shows error state
   }
 
-  return { boards, boardsNextCursor, organizations };
+  return { boards, boardsNextCursor, organizations, organizationsNextCursor };
 };
